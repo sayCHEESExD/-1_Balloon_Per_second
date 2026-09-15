@@ -28,7 +28,8 @@
     "verify:progression": "npm run build:shared && node scripts/verify-progression.mjs",
     "verify:services": "npm run build:server && node scripts/verify-services.mjs",
     "verify:bloxity": "npm run build:server && node scripts/verify-bloxity.mjs",
-    "verify": "npm run verify:assets && npm run verify:course && npm run verify:progression && npm run verify:services && node scripts/verify-bloxity.mjs",
+    "verify": "npm run verify:assets && npm run verify:course && npm run verify:progression && npm run verify:services && node scripts/verify-bloxity.mjs && node scripts/verify-identity.mjs",
+    "verify:identity": "npm run build:server && node scripts/verify-identity.mjs",
     "verify:capacity": "node scripts/verify-capacity.mjs",
     "verify:worlds": "node scripts/verify-worlds.mjs"
   },

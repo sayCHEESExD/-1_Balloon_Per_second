@@ -20,6 +20,8 @@ export interface ServerConfig {
   readonly buxAllowUnsigned: boolean;
   /** Bloxity's API, for verifying player tokens. */
   readonly bloxityApiBase: string;
+  /** This game's Bloxity slug: game-scoped player tokens are verified against it. */
+  readonly bloxityGameId: string;
 }
 
 const int = (value: string | undefined, fallback: number): number => {
@@ -46,4 +48,6 @@ export const serverConfig: ServerConfig = {
   buxWebhookSecret: process.env['BLOXITY_WEBHOOK_SECRET'] ?? '',
   buxAllowUnsigned: process.env['BLOXITY_WEBHOOK_ALLOW_UNSIGNED'] === '1',
   bloxityApiBase: (process.env['BLOXITY_API_BASE'] ?? 'https://api.bloxity.io').replace(/\/+$/, ''),
+  // Legion injects BLOXITY_GAME_ID on Bloxity Hosting.
+  bloxityGameId: process.env['BLOXITY_GAME_ID'] || 'balloon-per-second',
 };

@@ -278,7 +278,7 @@ export class GameRoom extends Room<GameState> {
       return;
     }
 
-    void verifyBloxityToken(token, serverConfig.bloxityApiBase).then((user) => {
+    void verifyBloxityToken(token, serverConfig.bloxityApiBase, serverConfig.bloxityGameId).then((user) => {
       if (this.identityChecks.get(sessionId) !== check) return;
       const player = this.state.players.get(sessionId);
       if (!player) return;
