@@ -30,6 +30,10 @@ class ProfileStore {
     return this.profiles.entries();
   }
 
+  get(playerId: string): StoredProfile | undefined {
+    return this.profiles.get(playerId);
+  }
+
   /** Apply a stored profile onto fresh state. Derived figures are recomputed after. */
   restore(playerId: string, player: PlayerState): boolean {
     const profile = this.profiles.get(playerId);
@@ -48,6 +52,7 @@ class ProfileStore {
 
   save(playerId: string, player: PlayerState): void {
     if (!playerId) return;
+    const previous = this.profiles.get(playerId);
     this.profiles.set(playerId, {
       balloons: player.balloons,
       wins: player.wins,
@@ -56,6 +61,10 @@ class ProfileStore {
       equippedBalloon: player.equippedBalloon,
       pets: player.pets,
       world2Unlocked: player.world2Unlocked,
+      // The identity is only ever the server-verified one; a session that has not
+      // (yet) verified keeps the last verified name rather than erasing it.
+      displayName: player.displayName || previous?.displayName || '',
+      avatarUrl: player.displayName ? player.avatarUrl : previous?.avatarUrl || '',
       updatedAt: Date.now(),
     });
     this.adapter.save(this.profiles);

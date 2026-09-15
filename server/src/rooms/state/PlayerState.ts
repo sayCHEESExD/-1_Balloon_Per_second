@@ -10,10 +10,13 @@ import { SPAWN_POSITION, SPAWN_ROTATION_Y } from '@highjump/shared';
  */
 export class PlayerState extends Schema {
   @type('string') sessionId = '';
-  /** Derived from the player's id; the id itself never leaves the server. */
-  @type('string') handle = '';
-  /** The Bloxity display name, set ONLY from a token the server verified. '' for guests. */
+  /**
+   * The Bloxity display name, set ONLY from a token the server verified. '' for
+   * guests (shown as "Guest"). Internal ids never leave the server.
+   */
   @type('string') displayName = '';
+  /** The verified Bloxity avatar thumbnail (`pfp`), or '' for a guest. */
+  @type('string') avatarUrl = '';
 
   @type('float32') x: number = SPAWN_POSITION.x;
   @type('float32') y: number = SPAWN_POSITION.y;
@@ -54,10 +57,11 @@ export class PlayerState extends Schema {
   // ---- derived by BalloonService
   /** Balloons granted every payout. */
   @type('float64') balloonsPerTick = 1;
-  /** The altitude the balloons lift this player to. The jump rises toward it. */
-  @type('float32') reachY = 1.6;
-  /** The altitude this player's balloons can lift them to (`climbHeightFor`). */
-  @type('float64') climbHeight = 0;
+  /**
+   * How high one full jump rises (`worldLift`): a constant strength from the
+   * balloons alone, the same on every step. The sim reads nothing else.
+   */
+  @type('float64') lift = 0;
 
   // ---- inventories
   /** Owned balloons as a bit mask (the Yellow Balloon is always owned). */

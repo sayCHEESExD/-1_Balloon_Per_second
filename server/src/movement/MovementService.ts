@@ -84,7 +84,7 @@ export class MovementService {
     sim.budget -= step;
     sim.lastSeq = seq;
 
-    stepPlayer(sim.motion, sanitiseInput(message), { reachY: player.reachY }, step, this.collision, sim.events);
+    stepPlayer(sim.motion, sanitiseInput(message), { lift: player.lift }, step, this.collision, sim.events);
 
     this.publish(player, sim);
     return true;

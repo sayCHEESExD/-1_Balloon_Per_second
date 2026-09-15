@@ -17,8 +17,7 @@ import {
   WIN_PADS,
   balloonMask,
   eggPedestalCentre,
-  climbHeightFor,
-  reachYFor,
+  balloonLiftFor,
 } from '../shared/dist/index.js';
 import { BalloonService } from '../server/dist/progression/BalloonService.js';
 import { BalloonShopService } from '../server/dist/progression/BalloonShopService.js';
@@ -40,7 +39,7 @@ const check = (label, condition, detail = '') => {
 const makePlayer = (over = {}) => ({
   sessionId: `p${Math.random()}`,
   x: 0, y: 0, z: -12, grounded: true,
-  balloons: 0, wins: 0, playSeconds: 0, balloonsPerTick: 1, reachY: 1.6, climbHeight: 0,
+  balloons: 0, wins: 0, playSeconds: 0, balloonsPerTick: 1, lift: 0, world: 1,
   ownedBalloons: 1, equippedBalloon: 1, pets: '',
   ...over,
 });
@@ -58,7 +57,7 @@ console.log('\nballoons over time\n');
   check('+1 balloon at 5 seconds', player.balloons === 1, `${player.balloons}`);
   for (let i = 0; i < 20 * 60; i += 1) balloons.tick(player, 0.05);
   check('a minute pays 12', player.balloons === 13, `${player.balloons}`);
-  check('the climb height and the reach follow the balloons', player.climbHeight === climbHeightFor(13, 1) && player.reachY === reachYFor(player.climbHeight));
+  check('the lift follows the balloons, and only the balloons', player.lift === balloonLiftFor(13, 1) && !('reachY' in player) && !('climbHeight' in player));
   const stalled = makePlayer();
   balloons.initialise(stalled);
   balloons.tick(stalled, 1e6);
@@ -88,11 +87,11 @@ console.log('\nthe balloon shop\n');
   check('and goes straight into the hand', player.equippedBalloon === 2 && player.balloonsPerTick === 2);
   player.balloons = 100;
   balloons.syncDerived(player);
-  check('its climb multiplier applies at once (100 balloons count as 110)', Math.abs(player.climbHeight - climbHeightFor(110, 1)) < 1e-6);
+  check('its lift multiplier applies at once (100 balloons count as 110)', Math.abs(player.lift - balloonLiftFor(110, 1)) < 1e-6);
   check('it cannot be bought twice', shop.buy(player, 2, balloons) === 'already-owned' && player.wins === 50);
   check('Red sells at exactly 50', shop.buy(player, 3, balloons) === null && player.wins === 0);
   check('an owned balloon can be re-equipped', shop.equip(player, 2, balloons) === null && player.equippedBalloon === 2);
-  check('wearing a weaker balloon keeps the best multiplier (Red: 100 count as 120)', Math.abs(player.climbHeight - climbHeightFor(120, 1)) < 1e-6);
+  check('wearing a weaker balloon keeps the best multiplier (Red: 100 count as 120)', Math.abs(player.lift - balloonLiftFor(120, 1)) < 1e-6);
   check('the starter can always be equipped', shop.equip(player, 1, balloons) === null && player.balloonsPerTick === 1);
   const rich = makePlayer({ wins: 5_000_000 });
   balloons.initialise(rich);

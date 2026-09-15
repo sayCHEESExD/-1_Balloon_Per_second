@@ -1,4 +1,4 @@
-import { heldBalloon } from '@highjump/shared';
+import { heldBalloon, visibleName } from '@highjump/shared';
 import { createAnimationInput, type AnimationInput } from '../animation/AnimationInput.js';
 import type { NetPlayerState } from '../net/netTypes.js';
 import { PlayerCharacter } from './PlayerCharacter.js';
@@ -64,7 +64,7 @@ export class RemotePlayer {
 
     this.character.setBalloon(heldBalloon(state.equippedBalloon, state.ownedBalloons).slot);
     this.character.setPets(state.pets);
-    this.character.setNameTag(state.displayName || state.handle, state.balloons);
+    this.character.setNameTag(visibleName(state.displayName), state.balloons, state.displayName ? state.avatarUrl : '');
   }
 
   update(delta: number): void {

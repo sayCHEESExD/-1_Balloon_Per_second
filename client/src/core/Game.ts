@@ -3,6 +3,7 @@ import {
   RARITIES,
   formatNumber,
   heldBalloon,
+  visibleName,
   isBalloonOwned,
   petById,
   type PetHatchedMessage,
@@ -123,6 +124,7 @@ export class Game {
   /** Remote players already announced to Bloxity, so a name is toasted once. */
   private readonly announced = new Set<string>();
   private joinedAt = 0;
+  private identityTimer = 0;
   /** FPS readout for the portal's `show_fps` setting. */
   private readonly fpsReadout: HTMLDivElement;
   private fpsFrames = 0;
@@ -191,6 +193,8 @@ export class Game {
         if (this.bloxityAvatar) this.bloxityAvatar.apply(equipped, proportions);
         else this.pendingLook = { equipped, proportions };
         this.bloxityPanel.refreshAvatar();
+        // A new look is a new avatar thumbnail: the server re-reads the profile.
+        this.refreshIdentitySoon();
       },
       // A login or logout after joining. Before joining this is a no-op and the
       // join itself carries the token.
@@ -362,7 +366,7 @@ export class Game {
 
       const state = this.localState;
       if (state) {
-        this.hud.update(delta, state.balloons, state.balloonsPerTick, state.climbHeight, state.ownedBalloons, state.world);
+        this.hud.update(delta, state.balloons, state.balloonsPerTick, state.lift, state.ownedBalloons, state.world);
         this.eggPanel.sync(state.wins, state.pets, this.run.currentEgg);
       }
     }
@@ -413,6 +417,18 @@ export class Game {
     this.audio.play('ui');
   }
 
+  /**
+   * Ask the server to re-verify our Bloxity token, so every player sees our current
+   * name and avatar thumbnail. Debounced: the customizer fires a change per edit.
+   */
+  private refreshIdentitySoon(): void {
+    window.clearTimeout(this.identityTimer);
+    this.identityTimer = window.setTimeout(() => {
+      const token = this.bloxity.getToken();
+      if (token) this.network.sendIdentity(token);
+    }, 2000);
+  }
+
   private flushInput(): void {
     const player = this.localPlayer;
     if (!player) return;
@@ -447,13 +463,13 @@ export class Game {
     if (!player) return;
     this.localState = state;
 
-    player.setReach(state.reachY);
+    player.setLift(state.lift);
     const held = heldBalloon(state.equippedBalloon, state.ownedBalloons);
     player.character.setBalloon(held.slot);
     // A giant balloon needs the camera further back to fit in shot.
     this.camera.setSubjectScale(held.size);
     player.character.setPets(state.pets);
-    player.character.setNameTag(state.displayName || state.handle, state.balloons);
+    player.character.setNameTag(visibleName(state.displayName), state.balloons, state.displayName ? state.avatarUrl : '');
     if (state.ready) {
       player.reconcile({
         x: state.x,

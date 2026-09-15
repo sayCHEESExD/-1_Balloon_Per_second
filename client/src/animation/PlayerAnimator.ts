@@ -160,6 +160,10 @@ export class PlayerAnimator {
         this.airWeight += (targetWeight - this.airWeight) * (1 - Math.exp(-JUMP_ANIMATION.airBlendRate * jumpDt));
         this.target.applyDefinition(AIRBORNE.fall, 1 - this.airWeight);
         this.target.blendInDefinition(AIRBORNE.rise, this.airWeight);
+        // Legs slowly paddling, as if hanging from the balloon string.
+        const dangle = Math.sin(this.clock * AIRBORNE.dangleFrequency * Math.PI * 2) * AIRBORNE.dangle;
+        this.target.add('LegL1', dangle);
+        this.target.add('LegR1', -dangle);
         this.target.bobY = FLOAT_SWAY.lift * this.airWeight;
         break;
       }
@@ -201,7 +205,7 @@ export class PlayerAnimator {
 
     // The float sway: a slow roll and pitch while airborne, eased in and out so
     // take-off and touchdown never snap.
-    this.floatWeight += ((input.grounded ? 0 : 1) - this.floatWeight) * (1 - Math.exp(-4 * dt));
+    this.floatWeight += ((input.grounded ? 0 : 1) - this.floatWeight) * (1 - Math.exp(-FLOAT_SWAY.easeRate * dt));
     const phase = this.clock * FLOAT_SWAY.frequency * Math.PI * 2;
     this.tipPivot.rotation.set(
       Math.sin(phase * 0.5) * FLOAT_SWAY.pitch * this.floatWeight,

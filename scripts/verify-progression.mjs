@@ -27,8 +27,8 @@ import {
   formatNumber,
   heldBalloon,
   isBalloonOwned,
-  balloonsForHeight,
-  climbHeightFor,
+  balloonsForLift,
+  balloonLiftFor,
   ownedBalloonCount,
   parsePets,
   petBalloonBonus,
@@ -37,7 +37,11 @@ import {
   resolveWinReward,
   rollPet,
   winsMultiplier,
+  GUEST_NAME,
+  normaliseAvatarUrl,
+  visibleName,
 } from '../shared/dist/index.js';
+import * as shared from '../shared/dist/index.js';
 
 let failures = 0;
 const check = (label, condition, detail = '') => {
@@ -77,10 +81,19 @@ check('the held balloon adds to the payout', balloonsPerTick(18, balloonMask(18)
 check('an unowned balloon adds nothing', balloonsPerTick(18, 1, '') === 1);
 check('the Yellow Balloon climbs x1; every bought one multiplies more', BALLOONS[0].climb === 1 && BALLOONS.slice(1).every((b) => b.climb > 1));
 check('the more expensive of any two balloons never climbs less', BALLOONS.every((a) => BALLOONS.every((b) => a.cost <= b.cost || a.climb >= b.climb)));
-check('no balloons, no climb height', climbHeightFor(0, 1) === 0);
-check('climb height grows with balloons, but more slowly each time (the grind)', climbHeightFor(2000, 1) > climbHeightFor(1000, 1) && climbHeightFor(2000, 1) - climbHeightFor(1000, 1) < climbHeightFor(1000, 1));
-check('the best balloon OWNED multiplies the balloons counted, held or not', Math.abs(climbHeightFor(100, balloonMask(18) | balloonMask(2)) - climbHeightFor(1000, 1)) < 1e-9 && Math.abs(climbHeightFor(100, balloonMask(4)) - climbHeightFor(130, 1)) < 1e-9);
-check('balloonsForHeight inverts it', [10, 500, 12_345].every((h) => climbHeightFor(balloonsForHeight(h, balloonMask(6)), balloonMask(6)) >= h && climbHeightFor(balloonsForHeight(h, balloonMask(6)) - 1, balloonMask(6)) < h));
+check('no balloons, no lift', balloonLiftFor(0, 1) === 0);
+check('lift grows with balloons, but more slowly each time (the grind)', balloonLiftFor(2000, 1) > balloonLiftFor(1000, 1) && balloonLiftFor(2000, 1) - balloonLiftFor(1000, 1) < balloonLiftFor(1000, 1));
+check('the best balloon OWNED multiplies the balloons counted, held or not', Math.abs(balloonLiftFor(100, balloonMask(18) | balloonMask(2)) - balloonLiftFor(1000, 1)) < 1e-9 && Math.abs(balloonLiftFor(100, balloonMask(4)) - balloonLiftFor(130, 1)) < 1e-9);
+check('balloonsForLift inverts it', [10, 500, 3_000].every((l) => balloonLiftFor(balloonsForLift(l, balloonMask(6)), balloonMask(6)) >= l && balloonLiftFor(balloonsForLift(l, balloonMask(6)) - 1, balloonMask(6)) < l));
+
+console.log('\nplayer identity\n');
+
+check('a Bloxity display name is shown exactly as it is', visibleName('Chicken 877') === 'Chicken 877');
+check('a player without a verified name is a Guest, never an id', visibleName('') === GUEST_NAME && visibleName(undefined) === 'Guest');
+check('no generated handles exist any more (no @Word_1234 names)', !('handleFor' in shared));
+check('an absolute Bloxity avatar thumbnail is kept', normaliseAvatarUrl('https://static.bloxity.io/img/pfps/abc.png?width=128&quality=85&v=2') === 'https://static.bloxity.io/img/pfps/abc.png?width=128&quality=85&v=2');
+check("a profile's relative pfp path is made absolute on Bloxity's host", normaliseAvatarUrl('/pfps/s1_hd2.png') === 'https://static.bloxity.io/img/pfps/s1_hd2.png?width=128&quality=85');
+check('avatar URLs off Bloxity, or not HTTPS, are refused', ['http://static.bloxity.io/a.png', 'https://evil.example/a.png', 'https://bloxity.io.evil.example/a.png', 'javascript:alert(1)', 42, ''].every((bad) => normaliseAvatarUrl(bad) === ''));
 
 console.log('\nballoon sizes\n');
 

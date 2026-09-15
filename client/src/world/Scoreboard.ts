@@ -13,6 +13,7 @@ import {
 } from 'three';
 import { PALETTE } from '../config/worldVisuals.js';
 import type { LeaderboardSnapshot, NetLeaderEntry } from '../net/netTypes.js';
+import { avatarImage, drawAvatar } from '../rendering/AvatarImages.js';
 import { CanvasSign } from './CanvasSign.js';
 import { texturedBox } from './texturedBox.js';
 import type { WorldTextures } from './WorldTextures.js';
@@ -118,6 +119,7 @@ class PanelSurface {
   private readonly material: MeshBasicMaterial;
   private readonly geometry: PlaneGeometry;
   private signature = '-';
+  private rows: NetLeaderEntry[] = [];
 
   constructor(private readonly spec: BoardSpec, width: number, height: number) {
     this.category = spec.category;
@@ -134,12 +136,18 @@ class PanelSurface {
   }
 
   apply(rows: readonly NetLeaderEntry[]): void {
-    const signature = rows.map((row) => `${row.handle}:${row.value}`).join('|');
+    const signature = rows.map((row) => `${row.name}:${row.avatar}:${row.value}`).join('|');
     if (signature === this.signature) return;
     this.signature = signature;
-    this.draw(rows);
-    this.texture.needsUpdate = true;
+    this.rows = rows.map((row) => ({ ...row }));
+    this.redraw();
   }
+
+  /** Repaint the current rows - also called when an avatar thumbnail finishes loading. */
+  private readonly redraw = (): void => {
+    this.draw(this.rows);
+    this.texture.needsUpdate = true;
+  };
 
   dispose(): void {
     this.texture.dispose();
@@ -167,11 +175,11 @@ class PanelSurface {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
     ctx.fillText('Rank', pad, headY);
-    ctx.fillText('Username', pad + width * 0.17, headY);
+    ctx.fillText('Player', pad + width * 0.17, headY);
     ctx.textAlign = 'right';
     ctx.fillText('Value', width - pad, headY);
 
-    if (!rows.some((row) => row.handle)) {
+    if (!rows.some((row) => row.name)) {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#9fd0ff';
       ctx.font = `900 ${rowH * 0.5}px ${FONT}`;
@@ -187,7 +195,7 @@ class PanelSurface {
         ctx.fillStyle = PALETTE.boardStripe;
         ctx.fillRect(pad * 0.5, top, width - pad, rowH);
       }
-      if (!row || !row.handle) continue;
+      if (!row || !row.name) continue;
       const size = rowH * 0.5;
 
       ctx.textAlign = 'left';
@@ -201,10 +209,15 @@ class PanelSurface {
       ctx.fillStyle = this.spec.valueFill;
       ctx.fillText(value, width - pad, y);
 
+      // [avatar] Display Name
+      const avatarRadius = rowH * 0.36;
+      const nameX = pad + width * 0.17;
+      drawAvatar(ctx, avatarImage(row.avatar, this.redraw), nameX + avatarRadius, y, avatarRadius, '#0b2a4a');
       ctx.textAlign = 'left';
-      fit(ctx, row.handle, width * 0.46, size);
+      const textX = nameX + avatarRadius * 2 + rowH * 0.18;
+      fit(ctx, row.name, width * 0.46 - (textX - nameX), size);
       ctx.fillStyle = PALETTE.boardName;
-      ctx.fillText(row.handle, pad + width * 0.17, y);
+      ctx.fillText(row.name, textX, y);
     }
   }
 }

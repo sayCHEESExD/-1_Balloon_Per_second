@@ -76,7 +76,7 @@ export class LocalPlayer {
   private readonly motion: PlayerMotion = createMotion();
   private readonly events = createSimEvents();
   private readonly replayEvents = createSimEvents();
-  private readonly params: SimParams = { reachY: 1.6 };
+  private readonly params: SimParams = { lift: 0 };
 
   private readonly pending: PendingInput[] = [];
   private nextSeq = 1;
@@ -125,9 +125,9 @@ export class LocalPlayer {
     return this.returning;
   }
 
-  /** The server-resolved reach this player's jump rises toward. */
-  setReach(reachY: number): void {
-    if (Number.isFinite(reachY)) this.params.reachY = reachY;
+  /** The server-derived balloon lift: how high one full jump rises, anywhere. */
+  setLift(lift: number): void {
+    if (Number.isFinite(lift)) this.params.lift = lift;
   }
 
   drainOutgoing(): MoveMessage[] {

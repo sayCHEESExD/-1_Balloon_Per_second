@@ -85,8 +85,8 @@ Every gameplay number lives in `shared/src/config/`:
 | --- | --- |
 | `course.ts` | `STUD_CURVE` (a step's top is `studElevation(studs)`), `STAIR_SEGMENTS` (stud increments, depth, width), `WIN_AREAS`, the reach margins and the hub layout |
 | `progression.ts` | the balloon payout clock and number formatting |
-| `movement.ts` | walk speed, air control, and the balloon jump (clearance, hop, apex timing) |
-| `balloons.ts` | the 18 shop balloons (prices, balloon bonus, win percent, climb multiplier, size, look) and `CLIMB_CURVE` (balloons to climb height) |
+| `movement.ts` | walk speed, air control, and the balloon jump (minimum hop, apex timing; its height is always the balloon lift) |
+| `balloons.ts` | the 18 shop balloons (prices, balloon bonus, win percent, climb multiplier, size, look) and `LIFT_CURVE` (balloons to jump lift, the same on every step) |
 | `pets.ts` | the three eggs, the pets in each, chances, buffs and inventory limits |
 
 ## Deploy

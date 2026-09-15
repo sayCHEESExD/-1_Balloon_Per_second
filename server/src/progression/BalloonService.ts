@@ -1,4 +1,4 @@
-import { BALLOON_TICK_SECONDS, MAX_BALLOONS, balloonsPerTick, reachYFor, worldClimbHeight } from '@highjump/shared';
+import { BALLOON_TICK_SECONDS, MAX_BALLOONS, balloonsPerTick, worldLift } from '@highjump/shared';
 import type { PlayerState } from '../rooms/state/PlayerState.js';
 
 /** Hard ceiling on payouts processed in one tick, so a stalled clock cannot hang the room. */
@@ -11,7 +11,7 @@ const MAX_PAYOUTS_PER_TICK = 4;
  * simulated room time a player in the room gains their per-payout amount.
  * There is no balloon message and nothing spends balloons.
  *
- * `syncDerived` is THE evaluator for the payout amount, the climb capacity and the reach. Every
+ * `syncDerived` is THE evaluator for the payout amount and the balloon lift. Every
  * service that changes an input to those (a payout, a balloon bought or
  * equipped, a pet hatched, equipped or deleted) calls it instead of computing
  * its own.
@@ -50,13 +50,11 @@ export class BalloonService {
     return player.balloons - before;
   }
 
-  /** Re-derive the payout amount, the climb capacity and the reach. */
+  /** Re-derive the payout amount and the balloon lift. */
   syncDerived(player: PlayerState): void {
     player.balloonsPerTick = balloonsPerTick(player.equippedBalloon, player.ownedBalloons, player.pets);
-    // The CURRENT world's climb: World 2 counts only balloons past World 1's requirement.
-    const climb = worldClimbHeight(player.world, player.balloons, player.ownedBalloons);
-    if (player.climbHeight !== climb) player.climbHeight = climb;
-    const reach = reachYFor(climb);
-    if (player.reachY !== reach) player.reachY = reach;
+    // The CURRENT world's lift: World 2 counts only balloons past World 1's requirement.
+    const lift = worldLift(player.world, player.balloons, player.ownedBalloons);
+    if (player.lift !== lift) player.lift = lift;
   }
 }

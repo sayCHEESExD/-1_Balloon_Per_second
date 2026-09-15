@@ -6,7 +6,8 @@ import type { MapSchema } from '@colyseus/schema';
  */
 export interface NetPlayerState {
   sessionId: string;
-  handle: string;
+  /** Verified Bloxity avatar thumbnail, or '' for a guest. */
+  avatarUrl: string;
   /** Verified Bloxity display name, or '' for a guest. */
   displayName: string;
   x: number;
@@ -34,8 +35,7 @@ export interface NetPlayerState {
   world2Unlocked: boolean;
 
   balloonsPerTick: number;
-  reachY: number;
-  climbHeight: number;
+  lift: number;
 
   ownedBalloons: number;
   equippedBalloon: number;
@@ -45,7 +45,9 @@ export interface NetPlayerState {
 }
 
 export interface NetLeaderEntry {
-  handle: string;
+  /** Bloxity display name, or "Guest"; '' for an empty row. */
+  name: string;
+  avatar: string;
   value: number;
 }
 

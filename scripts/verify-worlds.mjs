@@ -14,7 +14,7 @@
  * server's data. Usage: start the server, then `node scripts/verify-worlds.mjs`.
  */
 import { Client } from 'colyseus.js';
-import { PORTALS, ROOM_NAME, worldClimbHeight, worldSpawn } from '../shared/dist/index.js';
+import { PORTALS, ROOM_NAME, worldLift, worldSpawn } from '../shared/dist/index.js';
 
 const ENDPOINT = process.env.ENDPOINT ?? 'ws://localhost:2572';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -79,7 +79,7 @@ if (MessageType.Move !== 'move') console.log(`        (move message is "${Messag
   await sleep(300);
   const before = { ...probe.me().toJSON() };
   check('the unlocked profile is restored unlocked, in World 1', before.world2Unlocked === true && before.world === 1);
-  check("World 1's climb uses every balloon", Math.abs(before.climbHeight - worldClimbHeight(1, before.balloons, before.ownedBalloons)) < 1e-6);
+  check("World 1's lift uses every balloon", Math.abs(before.lift - worldLift(1, before.balloons, before.ownedBalloons)) < 1e-6);
 
   const arrived = await walkTo(probe, toWorld2.x, toWorld2.z, (s) => s.world === 2);
   await sleep(300);
@@ -90,9 +90,9 @@ if (MessageType.Move !== 'move') console.log(`        (move message is "${Messag
   check('balloons are kept in full', in2.balloons >= before.balloons, `${before.balloons} -> ${in2.balloons}`);
   check('wins, pets, balloons owned and equipped are kept', in2.wins === before.wins && in2.pets === before.pets && in2.ownedBalloons === before.ownedBalloons && in2.equippedBalloon === before.equippedBalloon);
   check(
-    "World 2 climbs on World 2's progression, far below World 1's climb",
-    Math.abs(in2.climbHeight - worldClimbHeight(2, in2.balloons, in2.ownedBalloons)) < 1e-6 && in2.climbHeight < before.climbHeight,
-    `world 1 ${before.climbHeight.toFixed(0)}, world 2 ${in2.climbHeight.toFixed(0)}`,
+    "World 2 lifts on World 2's progression, far below World 1's lift",
+    Math.abs(in2.lift - worldLift(2, in2.balloons, in2.ownedBalloons)) < 1e-6 && in2.lift < before.lift,
+    `world 1 ${before.lift.toFixed(0)}, world 2 ${in2.lift.toFixed(0)}`,
   );
 
   // Step off the spawn first, then into the return portal.
@@ -100,7 +100,7 @@ if (MessageType.Move !== 'move') console.log(`        (move message is "${Messag
   await sleep(300);
   const in1 = probe.me();
   check("World 2's portal returns them to World 1's spawn", back && in1.world === 1 && Math.abs(in1.x - worldSpawn(1).x) < 1 && Math.abs(in1.z - worldSpawn(1).z) < 1, `(${in1.x.toFixed(1)}, ${in1.z.toFixed(1)})`);
-  check("World 1's climb is back", Math.abs(in1.climbHeight - worldClimbHeight(1, in1.balloons, in1.ownedBalloons)) < 1e-6);
+  check("World 1's lift is back", Math.abs(in1.lift - worldLift(1, in1.balloons, in1.ownedBalloons)) < 1e-6);
   await probe.room.leave(true);
 }
 

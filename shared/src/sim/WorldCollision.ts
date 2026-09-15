@@ -95,11 +95,11 @@ export class WorldCollision {
   }
 
   /**
-   * Height of the walkable surface under the feet, or null over open sky. Nothing
-   * above `standLimit` (the balloons' reach, `standLimitFor`) is walkable.
+   * Height of the walkable surface under the feet, or null over open sky. Purely
+   * geometric: any surface within a step of the feet, at any altitude.
    */
-  surfaceYAt(x: number, z: number, feetY: number, standLimit: number): number | null {
-    const ceiling = Math.min(feetY + MOVEMENT.stepHeight, standLimit);
+  surfaceYAt(x: number, z: number, feetY: number): number | null {
+    const ceiling = feetY + MOVEMENT.stepHeight;
     let best: number | null = null;
     for (const solid of this.near(z)) {
       if (x < solid.minX - BODY_RADIUS || x > solid.maxX + BODY_RADIUS) continue;
@@ -127,13 +127,13 @@ export class WorldCollision {
   }
 
   /**
-   * Push the body out of anything it walked into along ONE axis. A solid can be
-   * stepped up onto only if it is no taller than a step AND within `standLimit`;
-   * a step above the balloons' reach is a wall at any height.
+   * Push the body out of anything it walked into along ONE axis. A solid whose top
+   * is within a step of the feet is stepped up onto; anything taller is a wall until
+   * the feet are high enough. Purely geometric - no progression enters collision.
    */
-  resolveAxis(axis: 0 | 2, value: number, other: number, feetY: number, standLimit: number): number {
+  resolveAxis(axis: 0 | 2, value: number, other: number, feetY: number): number {
     const headY = feetY + BODY_HEIGHT;
-    const stepTop = Math.min(feetY + MOVEMENT.stepHeight, standLimit);
+    const stepTop = feetY + MOVEMENT.stepHeight;
     let out = value;
 
     for (const solid of this.near(axis === 2 ? value : other)) {

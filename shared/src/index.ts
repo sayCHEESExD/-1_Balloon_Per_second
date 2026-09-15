@@ -10,6 +10,7 @@ export * from './config/balloons.js';
 export * from './config/camera.js';
 export * from './config/course.js';
 export * from './config/handles.js';
+export * from './config/identity.js';
 export * from './config/movement.js';
 export * from './config/pets.js';
 export * from './config/progression.js';

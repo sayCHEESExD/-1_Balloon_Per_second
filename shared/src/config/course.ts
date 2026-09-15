@@ -1,3 +1,4 @@
+import { jumpHeightFor } from './movement.js';
 import { EGGS } from './pets.js';
 import type { Aabb } from '../types/math.js';
 
@@ -16,12 +17,11 @@ import type { Aabb } from '../types/math.js';
  * staircase climbs out of sight. A riser is the elevation its step adds. Step
  * DEPTH is horizontal and independent.
  *
- * CLIMBING IS BALLOONS, ONLY. A player's balloons give them a climb HEIGHT
- * (`climbHeightFor`, which grows more slowly than the balloon count, so each stud
- * higher takes more balloons than the last). They can reach the highest step whose
- * top is within it (their REACH, `reachYFor`) - from wherever they are. A step
- * above the reach cannot be stood on or stepped up onto (`standLimitFor`), and a
- * jump always clears the next riser up to it.
+ * CLIMBING IS PHYSICS. A player's balloons give their jump a constant LIFT
+ * (`balloonLiftFor`): the same rise at stud 1, stud 300 and in World 2. There is no
+ * reach, no wall above it and no cap: a riser taller than the lift simply cannot be
+ * jumped, because the jump does not go high enough. `lastStepWithinLift` is for
+ * information only (the HUD) and nothing in the simulation reads it.
  *
  * Orientation: the staircase climbs along +Z. At spawn the player faces +Z, so
  * their LEFT is +X and their RIGHT is -X (the camera's right is -X at yaw 0).
@@ -91,15 +91,6 @@ export const MILESTONE_DEPTH = 34;
 /** Win pad footprint and its inset from the step's left (+X) edge. */
 export const WIN_PAD = { width: 12, depth: 14, inset: 1.5, thickness: 0.1 } as const;
 
-/** How far above the top of the highest reachable step a jump can rise. */
-export const REACH_MARGIN = 1.6;
-
-/**
- * How far above the top of the highest reachable step a player may STAND: over a
- * win pad (0.1), under the smallest riser (stud 1, 0.17). Anything taller is a
- * wall to them, however high they jump.
- */
-export const REACH_STAND_SLACK = 0.15;
 
 /** How far below its top a step column is solid (and drawn). */
 export const STEP_BASE_Y = -40;
@@ -349,8 +340,8 @@ const buildSolids = (): CourseSolid[] => {
   // walking along the front of the hub is stopped rather than walking off into
   // the sky, and the side clamp can end at the mouth without shoving anyone.
   const mouth = first.maxX;
-  // Far above the tallest jump (`BALLOON_JUMP.maxHeight`), so nobody hops over it.
-  const wallTop = HUB.floorY + 200;
+  // Effectively endless: a jump has no height cap, so no jump may clear it.
+  const wallTop = HUB.floorY + 1e7;
   solids.push(
     box('hubWall', mouth, HUB.halfWidth + 2, HUB.floorY - 4, wallTop, HUB.maxZ, HUB.maxZ + 2),
     box('hubWall', -HUB.halfWidth - 2, -mouth, HUB.floorY - 4, wallTop, HUB.maxZ, HUB.maxZ + 2),
@@ -411,52 +402,29 @@ export const stepAt = (z: number): StepDefinition | null => {
 };
 
 /**
- * The highest step within a climb height (`climbHeightFor`), or null below the
- * first step. Nothing but the climb height decides it.
+ * INFORMATION ONLY (the HUD): the last step whose riser a full jump of this lift
+ * rises past, counting up from the bottom, or null if not even the first. Risers
+ * strictly grow, so every step below it is within the lift too. The simulation never
+ * reads this - whether a riser is cleared is decided by the jump itself.
  */
-export const highestReachableStep = (climbHeight: number): StepDefinition | null => {
-  const height = Number.isFinite(climbHeight) ? climbHeight : 0;
-  if (height < (STEPS[0] as StepDefinition).top) return null;
+export const lastStepWithinLift = (lift: number): StepDefinition | null => {
+  const height = jumpHeightFor(lift);
+  if (height < (STEPS[0] as StepDefinition).rise) return null;
   let lo = 0;
   let hi = STEPS.length - 1;
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1;
-    if ((STEPS[mid] as StepDefinition).top <= height) lo = mid;
+    if ((STEPS[mid] as StepDefinition).rise <= height) lo = mid;
     else hi = mid - 1;
   }
   return STEPS[lo] ?? null;
 };
 
-/** The first step above a climb height, or null at the summit. */
-export const nextStepFor = (climbHeight: number): StepDefinition | null => {
-  const reached = highestReachableStep(climbHeight);
-  return STEPS[reached ? reached.index + 1 : 0] ?? null;
+/** INFORMATION ONLY: the first step whose riser is taller than this lift, or null. */
+export const firstStepBeyondLift = (lift: number): StepDefinition | null => {
+  const last = lastStepWithinLift(lift);
+  return STEPS[last ? last.index + 1 : 0] ?? null;
 };
-
-/**
- * THE balloon rule: the altitude a player's balloons lift them to. A jump
- * rises toward this and never past it (see `jumpHeightFor`).
- */
-export const reachYFor = (climbHeight: number): number =>
-  (highestReachableStep(climbHeight)?.top ?? HUB.floorY) + REACH_MARGIN;
-
-/**
- * The top of the step AHEAD of a player standing at `z`: the first step from the
- * hub, the next one on the staircase, the last one at the summit. A jump is sized
- * to clear it, so it never falls short of a riser, however tall.
- */
-export const nextStepTopFrom = (z: number): number => {
-  if (z < STAIR_START_Z) return (STEPS[0] as StepDefinition).top;
-  const step = stepAt(z) ?? (STEPS[STEPS.length - 1] as StepDefinition);
-  return (STEPS[step.index + 1] ?? step).top;
-};
-
-/**
- * The highest surface a player whose reach is `reachY` may stand on or step up
- * onto. Collision treats anything taller as a wall (`WorldCollision`).
- */
-export const standLimitFor = (reachY: number): number =>
-  (Number.isFinite(reachY) ? reachY : HUB.floorY + REACH_MARGIN) - REACH_MARGIN + REACH_STAND_SLACK;
 
 /** Half the fenced width at `z`: the hub's, or the open sky's past the mouth. */
 export const halfWidthAt = (z: number, world = 1): number =>

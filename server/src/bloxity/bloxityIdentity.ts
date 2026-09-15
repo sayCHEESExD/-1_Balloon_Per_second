@@ -1,3 +1,4 @@
+import { normaliseAvatarUrl } from '@highjump/shared';
 import { logger } from '../util/logger.js';
 
 const SCOPE = 'bloxity/identity';
@@ -7,6 +8,8 @@ export interface VerifiedBloxityUser {
   readonly id: string;
   readonly username: string;
   readonly displayName: string;
+  /** The account's avatar thumbnail (`pfp`), absolute on Bloxity's host, or ''. */
+  readonly avatarUrl: string;
 }
 
 /**
@@ -41,7 +44,11 @@ export const verifyBloxityToken = async (token: string, apiBase: string): Promis
     }
     const name = typeof username === 'string' ? username : '';
     const display = typeof candidate['displayName'] === 'string' ? (candidate['displayName'] as string) : name;
-    return { id, username: name, displayName: display.slice(0, 40) };
+    const avatar = candidate['avatar'];
+    const avatarUrl = normaliseAvatarUrl(
+      candidate['pfp'] ?? candidate['avatarUrl'] ?? (typeof avatar === 'string' ? avatar : undefined),
+    );
+    return { id, username: name, displayName: display.slice(0, 40), avatarUrl };
   } catch (error) {
     logger.warn(SCOPE, `could not verify token: ${String(error)}`);
     return null;

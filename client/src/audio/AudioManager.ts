@@ -7,7 +7,12 @@ const SFX_GAIN = 0.34;
 /** The supplied audio, served from the repo-level `assets/` (Vite publicDir). */
 const AUDIO_URL = {
   fall: '/audio/fall.mp3',
+  // Case matters on a deployed (Linux) host: the file is `Background.mp3`.
+  music: '/audio/Background.mp3',
 } as const;
+
+/** Background music level under the portal's music volume, so effects stay audible over it. */
+const MUSIC_GAIN = 0.45;
 
 const MAX_VOICES = 12;
 
@@ -34,9 +39,11 @@ const COOLDOWNS: Readonly<Record<SoundName, number>> = {
 /**
  * Every sound in the game.
  *
- * The supplied `fall.mp3` plays when a player drops off the staircase;
- * everything else is synthesised, because oscillators cost hundreds of bytes
- * against a 12 MB budget. Master and music volume follow the portal settings.
+ * `Background.mp3` loops as the background music, streamed through an audio
+ * element (never decoded whole into memory) into its own music bus. The supplied
+ * `fall.mp3` plays when a player drops off the staircase; everything else is
+ * synthesised, because oscillators cost hundreds of bytes against a 12 MB budget.
+ * Master and music volume follow the portal settings, and mute silences both.
  *
  * One-shots are bounded twice: a per-sound cooldown and a hard voice ceiling.
  * Nothing starts before a real user gesture.
@@ -52,6 +59,10 @@ export class AudioManager {
   private muted = false;
   /** Master volume from the portal settings, 0..1. Kept apart from mute. */
   private masterLevel = 1;
+  /** Music volume from the portal settings, 0..1. */
+  private musicLevel = 1;
+  private musicBus: GainNode | null = null;
+  private music: HTMLAudioElement | null = null;
 
   constructor() {
     try {
@@ -83,10 +94,39 @@ export class AudioManager {
       this.sfxBus = this.context.createGain();
       this.sfxBus.gain.value = SFX_GAIN;
       this.sfxBus.connect(this.master);
+      this.musicBus = this.context.createGain();
+      this.musicBus.gain.value = MUSIC_GAIN * this.musicLevel;
+      this.musicBus.connect(this.master);
     }
 
     void this.context.resume().catch(() => undefined);
     void this.loadSamples();
+    this.startMusic();
+  }
+
+  /**
+   * The looping background track. Started on the first user gesture (browsers
+   * refuse audio before one) and routed through the master gain, so mute and the
+   * master volume apply. A failure to load or play just means no music.
+   */
+  private startMusic(): void {
+    const ctx = this.context;
+    if (!ctx || !this.musicBus) return;
+    if (!this.music) {
+      try {
+        const element = new Audio(AUDIO_URL.music);
+        element.loop = true;
+        element.preload = 'auto';
+        element.crossOrigin = 'anonymous';
+        ctx.createMediaElementSource(element).connect(this.musicBus);
+        element.addEventListener('error', () => logger.warn(SCOPE, `could not load ${AUDIO_URL.music}`), { once: true });
+        this.music = element;
+      } catch (error) {
+        logger.warn(SCOPE, `no background music: ${String(error)}`);
+        return;
+      }
+    }
+    if (this.music.paused) void this.music.play().catch(() => undefined);
   }
 
   toggleMuted(): boolean {
@@ -113,9 +153,12 @@ export class AudioManager {
     }
   }
 
-  /** The portal's `music_volume`. This game ships no music, so there is nothing to scale. */
-  setMusicVolume(_level: number): void {
-    /* no music track */
+  /** The portal's `music_volume`, 0..1: scales the background music only. */
+  setMusicVolume(level: number): void {
+    this.musicLevel = Number.isFinite(level) ? Math.min(Math.max(level, 0), 1) : 1;
+    if (this.musicBus && this.context) {
+      this.musicBus.gain.setTargetAtTime(MUSIC_GAIN * this.musicLevel, this.context.currentTime, 0.05);
+    }
   }
 
   play(name: SoundName, intensity = 1): void {
@@ -171,6 +214,12 @@ export class AudioManager {
   }
 
   dispose(): void {
+    if (this.music) {
+      this.music.pause();
+      this.music.removeAttribute('src');
+      this.music.load();
+      this.music = null;
+    }
     void this.context?.close().catch(() => undefined);
     this.context = null;
   }

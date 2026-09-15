@@ -34,20 +34,19 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
 
 - `stepPlayer` in `shared/src/sim/PlayerSim.ts` is THE simulation, run by the server
   and by client prediction. Never add a second physics implementation.
-- **The reach is the balloon rule, and only balloons decide it.** Climb height is
-  `climbHeightFor(balloons, owned)` = `CLIMB_CURVE.scale * (balloons * best owned
-  multiplier) ^ CLIMB_CURVE.exponent` (replicated as `climbHeight`). The exponent under 1
-  IS the long grind: each stud higher costs more balloons than the last. A player can
-  reach the highest step whose top is within it; `reachYFor(climbHeight)` = that top +
-  `REACH_MARGIN`. Nothing about where the player is, the stud they are on, or riser
-  heights may ever weaken it. A step above the reach is a wall: `standLimitFor(reachY)`
-  is passed into `surfaceYAt` and `resolveAxis`. `verify-course` proves the same
-  climb height reaches the same step starting at stud 10, 100, 200 and 300, and that
-  1.68K balloons on the Heart are nowhere near the top.
-- **The jump** is `jumpHeightFor(feetY, reachY, nextStepTopFrom(z))`: toward the reach,
-  but only as far as the next step's top + `clearance` (so it always clears the next
-  reachable riser and never strands anyone far above it), at least `minHop`. Its
-  physics comes from its height (`resolveJumpPhysics`, log-time apex), and each arc's
+- **The balloon LIFT is a physical strength, and only balloons decide it.** Lift is
+  `balloonLiftFor(balloons, owned)` = `LIFT_CURVE.scale * (balloons * best owned
+  multiplier) ^ LIFT_CURVE.exponent` (per world: `worldLift`, replicated as `lift`).
+  Every jump rises exactly `jumpHeightFor(lift)` = max(lift, `minHop`) - one argument,
+  so no position can ever enter it. **There is NO reach, NO stand limit, NO cap and NO
+  "reachable step" gate** anywhere in the simulation or collision: a riser taller than
+  the lift is not cleared only because the jump does not go high enough. Never
+  reintroduce a height/stud/Y/distance-based clamp or scaling on the jump or on
+  collision. `lastStepWithinLift` / `firstStepBeyondLift` are HUD information only.
+  `verify-course` proves a jump gains the identical height at the hub, studs
+  1/9/50/100/200/300/500 and in World 2, and that a greedy climber stops only where a
+  riser exceeds its lift. The exponent under 1 is the grind.
+- **The jump physics** comes from its height (`resolveJumpPhysics`, log-time apex), and each arc's
   gravity and fastest fall live in the motion (`airGravity`, `airTerminal`, replicated);
   a walk-off falls like a jump the height of the riser underfoot. `maxSubsteps` is 160
   because a towering riser moves thousands of units a second.
@@ -59,9 +58,8 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
   tile around the camera, so everything holds up at six-figure altitudes.
 - **Balloon size shows value** (`size` in `balloons.ts`): cheap 1-1.1, mid-tier
   1.25-2.1, rare 2.8-5.5. The string lengthens and the camera pulls back with it.
-- The tallest riser + `REACH_MARGIN` must stay inside `BALLOON_JUMP.maxHeight`.
-  `verify-course` asserts it and simulates a greedy climber for many balloon counts and
-  balloons: it must stop on exactly the highest reachable step.
+- The hub's front-edge walls are effectively endless (a jump has no cap), and landing
+  is a swept surface test, so even a six-figure lift cannot tunnel or hop out.
 - A hop is slow and floaty; there is one jump per landing (no air jumps).
 - **Landings are soft.** No debris, dust ring, shockwave, camera shake or heavy impact
   sound on landing or falling - the player drifts down under a balloon. Do not add any.
@@ -95,7 +93,8 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
   Reaching World 1's final step (`isFinalStep`) sets the persisted `world2Unlocked`.
   The portals (`PORTALS`, `portalAt`) are walk-in zones checked by the SERVER tick;
   World 1's is shut until unlocked. The balloon total never resets; the CLIMB is per
-  world (`worlds.ts`): World 2 climbs on `balloons - world1Requirement(owned)`.
+  world (`worlds.ts`): World 2 lifts on `balloons - world1Requirement(owned)`, the
+  balloons that lift over World 1's tallest riser; that lift is then constant.
   The client draws World 2 blue-shaded (`CourseWorld`, `Portal`).
 - Stud labels and pad labels are one `SignAtlas` (one texture, one draw call). Steps,
   plates, pads, glows and the sky balloon clusters are merged. Keep it that way.
@@ -107,7 +106,7 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
 
 - **Balloons move only through `BalloonService`** (`tick` on the room clock, `grant`).
   Nothing spends balloons. `syncDerived` is THE evaluator of `balloonsPerTick` and
-  `climbHeight` and `reachY`; every service that changes an input to them calls it.
+  `lift`; every service that changes an input to them calls it.
 - Balloons per payout = 1 + the held balloon's `balloons` + the equipped pets'.
   Win reward = pad wins × (100 + held balloon % + pets %) / 100, integer percent maths.
 - **Wins move only through `Wallet`.** Added by `WinService` and Bux grants; spent by
@@ -129,6 +128,14 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
   pose (`HOLD_BALLOON`) and sways the body while airborne (`FLOAT_SWAY`).
 - Balloon and pet models are cached primitives (`BalloonModels`, `PetModels`) shared by
   the world, every player and the menu thumbnails (`rendering/Thumbnails.ts`).
+- **Visible identity is Bloxity's, verified by the server.** Name tags and scoreboard
+  rows show `[avatar] Display Name` from the Bloxity profile the server fetched with the
+  player's token (`verifyBloxityToken` -> `PlayerState.displayName`/`avatarUrl`, saved to
+  the profile for offline board rows). Not signed in = "Guest" with Bloxity's default
+  avatar (`visibleName`, `identity.ts`). Never show a generated handle, `@`, or any
+  internal id (player id, session id, account id). A client never sends a name or
+  avatar; after an avatar change it only re-sends its token. Avatar thumbnails load
+  with CORS (`AvatarImages`) so canvases are never tainted.
 - Players have a name tag with their balloon count; pets have their name in the rarity
   colour (`NameTag`). Equipped pets follow their owner (`PetCompanions`), local AND remote.
 - The HUD meter's bar runs on a local clock re-synced to 0 whenever the replicated
@@ -141,8 +148,9 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
 - Animators write only bones and their own pivot nodes (`tipPivot`, `visual`), never
   the physics root.
 - Remote animation is derived from monotonic counters against a first-sight baseline.
-- Only the local player makes sound. The only audio file is `fall.mp3`; the rest is
-  synthesised.
+- Only the local player makes sound. The audio files are `Background.mp3` (looping
+  background music, streamed through the music bus under master/mute and the portal's
+  music volume) and `fall.mp3`; every effect else is synthesised.
 - Portal (Unblocked City) integration is build-time env only (`portalConfig.ts`) and
   must never block play.
 

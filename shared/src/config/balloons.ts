@@ -114,29 +114,32 @@ export const bestClimbMultiplier = (owned: number): number =>
   BALLOONS.reduce((best, balloon) => (isBalloonOwned(owned, balloon.slot) ? Math.max(best, balloon.climb) : best), 1);
 
 /**
- * How balloons become climb height: `scale * (balloons * multiplier) ^ exponent`.
- * The exponent under 1 is the grind: each stud higher costs more balloons than the
- * last. 60 balloons reach stud 17; 1.7K stud ~55; the top takes hundreds of
- * thousands on late balloons.
+ * How balloons become LIFT: `scale * (balloons * multiplier) ^ exponent`, in world
+ * units. The exponent under 1 is the grind: each extra unit of lift costs more
+ * balloons than the last, while the staircase's risers keep growing. Calibrated so
+ * ~10 balloons clear stud 9's riser, ~50 stud 17's, and the top risers take hundreds
+ * of thousands of balloons on late balloons.
  */
-export const CLIMB_CURVE = { scale: 3.77, exponent: 0.772 } as const;
+export const LIFT_CURVE = { scale: 1.09, exponent: 0.6 } as const;
 
 /**
- * THE climb height, in world units: what a player's balloons can lift them to. It
- * depends on the balloon count and the best owned balloon, and on nothing else -
- * not where the player stands, not the staircase - and it never falls.
+ * THE balloon lift: how many world units one full jump rises. A physical strength
+ * that depends on the balloon count and the best owned balloon and on NOTHING else -
+ * not the step, the height, the world position or the staircase - so a jump gains
+ * exactly the same height at stud 1 as at stud 300. Whether that clears a riser is
+ * decided by the physics, never by a rule.
  */
-export const climbHeightFor = (balloons: number, owned: number): number => {
+export const balloonLiftFor = (balloons: number, owned: number): number => {
   const count = Number.isFinite(balloons) ? Math.max(0, Math.floor(balloons)) : 0;
-  return CLIMB_CURVE.scale * (count * bestClimbMultiplier(owned)) ** CLIMB_CURVE.exponent;
+  return LIFT_CURVE.scale * (count * bestClimbMultiplier(owned)) ** LIFT_CURVE.exponent;
 };
 
-/** The fewest balloons whose climb height reaches `height` with these balloons owned. */
-export const balloonsForHeight = (height: number, owned: number): number => {
-  if (!(height > 0)) return 0;
+/** The fewest balloons whose lift is at least `lift` with these balloons owned. */
+export const balloonsForLift = (lift: number, owned: number): number => {
+  if (!(lift > 0)) return 0;
   const multiplier = bestClimbMultiplier(owned);
-  let count = Math.max(0, Math.floor((height / CLIMB_CURVE.scale) ** (1 / CLIMB_CURVE.exponent) / multiplier) - 2);
-  while (climbHeightFor(count, owned) < height) count += 1;
+  let count = Math.max(0, Math.floor((lift / LIFT_CURVE.scale) ** (1 / LIFT_CURVE.exponent) / multiplier) - 2);
+  while (balloonLiftFor(count, owned) < lift) count += 1;
   return count;
 };
 

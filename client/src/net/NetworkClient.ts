@@ -170,7 +170,7 @@ export class NetworkClient {
       const out: NetLeaderEntry[] = [];
       for (let i = 0; i < rows.length; i += 1) {
         const row = rows[i];
-        if (row) out.push({ handle: row.handle, value: row.value });
+        if (row) out.push({ name: row.name, avatar: row.avatar, value: row.value });
       }
       return out;
     };

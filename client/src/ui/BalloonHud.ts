@@ -1,4 +1,4 @@
-import { BALLOON_TICK_SECONDS, formatClock, formatNumber, highestReachableStep, nextStepFor, totalBalloonsForHeight } from '@highjump/shared';
+import { BALLOON_TICK_SECONDS, firstStepBeyondLift, formatClock, formatNumber, jumpHeightFor, totalBalloonsForLift } from '@highjump/shared';
 import { BALLOON_ICON_URL, ICONS, injectHudStyles } from './hudStyles.js';
 
 const studs = (n: number): string => `${formatNumber(n)} Stud${n === 1 ? '' : 's'}`;
@@ -60,7 +60,7 @@ export class BalloonHud {
     this.lastBalloons = balloons;
   }
 
-  update(delta: number, balloons: number, perTick: number, climbHeight: number, owned: number, world = 1): void {
+  update(delta: number, balloons: number, perTick: number, lift: number, owned: number, world = 1): void {
     this.elapsed = Math.min(this.elapsed + Math.max(0, delta), BALLOON_TICK_SECONDS);
     const width = `${((this.elapsed / BALLOON_TICK_SECONDS) * 100).toFixed(1)}%`;
     if (width !== this.lastWidth) {
@@ -69,19 +69,20 @@ export class BalloonHud {
     }
 
     const remaining = BALLOON_TICK_SECONDS - this.elapsed;
-    const signature = `${Math.floor(balloons)}|${perTick}|${Math.ceil(remaining)}|${climbHeight}|${owned}|${world}`;
+    const signature = `${Math.floor(balloons)}|${perTick}|${Math.ceil(remaining)}|${lift}|${owned}|${world}`;
     if (signature === this.signature) return;
     this.signature = signature;
 
     this.clock.textContent = formatClock(remaining);
     this.gain.textContent = `+ ${formatNumber(perTick)} Balloon(s)`;
-    // The count is always the full total; the reach is the current world's climb.
-    const reached = highestReachableStep(climbHeight);
+    // Information only. The count is the full total; the lift is the current world's
+    // jump strength, the same on every step. Nothing here feeds the physics.
+    const height = jumpHeightFor(lift);
     const prefix = world === 2 ? 'World 2 · ' : '';
-    this.count.textContent = `${formatNumber(balloons)}  ·  ${prefix}Reach ${studs(reached?.studs ?? 0)}`;
-    const next = nextStepFor(climbHeight);
-    const more = next ? Math.max(1, totalBalloonsForHeight(world, next.top, owned) - Math.floor(balloons)) : 0;
-    this.next.textContent = next ? `Next: ${studs(next.studs)} (+${formatNumber(more)} balloons)` : 'You can reach the top!';
+    this.count.textContent = `${formatNumber(balloons)}  ·  ${prefix}Lift ${height < 100 ? height.toFixed(1) : formatNumber(Math.round(height))}`;
+    const next = firstStepBeyondLift(lift);
+    const more = next ? Math.max(1, totalBalloonsForLift(world, next.rise, owned) - Math.floor(balloons)) : 0;
+    this.next.textContent = next ? `Taller riser at ${studs(next.studs)}: +${formatNumber(more)} balloons` : 'Your lift clears every riser!';
     this.next.classList.toggle('hj-meter__next--top', !next);
   }
 

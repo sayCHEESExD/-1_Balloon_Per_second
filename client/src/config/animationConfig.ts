@@ -79,6 +79,9 @@ export const JUMP_START = {
  */
 export const AIRBORNE = {
   velocityReference: 18,
+  /** Legs slowly paddling while hanging from the balloon: amplitude and cycles per second. */
+  dangle: deg(9),
+  dangleFrequency: 0.45,
   rise: {
     Spine1: { x: deg(-8) },
     Neck1: { x: deg(-10) },
@@ -103,15 +106,17 @@ export const AIRBORNE = {
 
 /** The gentle side-to-side sway of a player drifting under a balloon. */
 export const FLOAT_SWAY = {
-  roll: deg(5),
-  pitch: deg(3),
-  frequency: 1.4,
+  roll: deg(9),
+  pitch: deg(6),
+  frequency: 0.6,
   /** How far the body is lifted toward the balloon at the top of a rise. */
-  lift: 0.12,
+  lift: 0.3,
+  /** How quickly the sway eases in after take-off and out on landing, per second. */
+  easeRate: 1.8,
 } as const;
 
 export const LANDING = {
-  duration: 0.16,
+  duration: 0.3,
   pose: {
     Spine1: { x: deg(14) },
     Spine2: { x: deg(6) },
@@ -123,14 +128,14 @@ export const LANDING = {
     ArmL1: { x: deg(20), z: deg(-22) },
     ArmL2: { x: deg(30) },
   } satisfies PoseDefinition,
-  bobY: -0.16,
+  bobY: -0.08,
 } as const;
 
 export const TRANSITIONS = {
-  toLocomotion: 0.16,
-  toJumpStart: 0.05,
-  toAirborne: 0.18,
-  toLanding: 0.05,
+  toLocomotion: 0.24,
+  toJumpStart: 0.08,
+  toAirborne: 0.4,
+  toLanding: 0.12,
 } as const;
 
 /**
@@ -139,7 +144,7 @@ export const TRANSITIONS = {
  * are untouched.
  */
 export const JUMP_ANIMATION = {
-  playbackRate: 0.7,
+  playbackRate: 0.5,
   /** How fast the rise/fall pose follows vertical velocity, per second, before the rate. */
-  airBlendRate: 5,
+  airBlendRate: 2.2,
 } as const;

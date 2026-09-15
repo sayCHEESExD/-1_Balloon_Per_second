@@ -14,6 +14,9 @@ export interface StoredProfile {
   pets: string;
   /** World 2 unlocked (World 1's final step reached). */
   world2Unlocked?: boolean;
+  /** Last verified Bloxity display name and avatar thumbnail, for the boards. */
+  displayName?: string;
+  avatarUrl?: string;
   updatedAt: number;
 }
 

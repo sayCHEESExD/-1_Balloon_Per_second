@@ -12,6 +12,7 @@ import {
 import { mkdir, open, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { logger } from '../util/logger.js';
+import { normaliseAvatarUrl } from '@highjump/shared';
 import type { PersistenceAdapter, StoredProfile } from './PersistenceAdapter.js';
 
 const SCOPE = 'persistence';
@@ -72,6 +73,8 @@ export class JsonFilePersistence implements PersistenceAdapter {
           equippedBalloon: Math.max(1, numeric(value.equippedBalloon)),
           pets: typeof value.pets === 'string' ? value.pets.slice(0, 2048) : '',
           world2Unlocked: value.world2Unlocked === true,
+          displayName: typeof value.displayName === 'string' ? value.displayName.slice(0, 40) : '',
+          avatarUrl: normaliseAvatarUrl(value.avatarUrl),
           updatedAt: numeric(value.updatedAt),
         });
       }

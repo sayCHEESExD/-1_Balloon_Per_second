@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const assets = fileURLToPath(new URL('../assets', import.meta.url));
 
-const REQUIRED = ['audio/fall.mp3', 'player/player.fbx', 'player/green.png', 'ui/trophy.png', 'ui/inventory.png', 'ui/shop.png'];
+const REQUIRED = ['audio/fall.mp3', 'audio/Background.mp3', 'player/player.fbx', 'player/green.png', 'ui/trophy.png', 'ui/inventory.png', 'ui/shop.png'];
 
 /** Present but pruned from the build by vite.config.ts. */
 const UNSHIPPED = ['player/base_rig.fbx'];

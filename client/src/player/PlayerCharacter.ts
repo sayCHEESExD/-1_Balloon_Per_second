@@ -118,8 +118,9 @@ export class PlayerCharacter {
   }
 
   /** The label over the head. */
-  setNameTag(name: string, balloons: number): void {
-    this.nameTag.set(name, balloons);
+  /** The display name, balloon count and Bloxity avatar thumbnail ('' = Bloxity's default). */
+  setNameTag(name: string, balloons: number, avatarUrl = ''): void {
+    this.nameTag.set(name, balloons, '#ffffff', avatarUrl);
   }
 
   update(delta: number, input: AnimationInput): void {

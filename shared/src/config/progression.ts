@@ -5,8 +5,8 @@
  * `BALLOON_TICK_SECONDS` a connected player gains their per-tick amount (1,
  * plus the held balloon's bonus, plus the equipped pets'). Nothing else grants
  * a balloon and nothing spends one. The count is the player's climbing
- * capability, boosted by the best balloon owned: see `climbHeightFor` and
- * `reachYFor`.
+ * capability, boosted by the best balloon owned: see `balloonLiftFor`
+ * (a constant jump strength, wherever the player is).
  */
 
 /** Seconds per balloon payout. The HUD meter fills over exactly this. */

@@ -1,5 +1,5 @@
 import { BALLOON_JUMP, MOVEMENT, jumpHeightFor, resolveJumpPhysics } from '../config/movement.js';
-import { nextStepTopFrom, standLimitFor, stepAt } from '../config/course.js';
+import { stepAt } from '../config/course.js';
 import { BODY_HEIGHT, SPAWN_POSITION, SPAWN_ROTATION_Y } from '../constants/world.js';
 import { rotateTowards } from '../types/math.js';
 import type { WorldCollision } from './WorldCollision.js';
@@ -11,9 +11,10 @@ import type { WorldCollision } from './WorldCollision.js';
  * runs the identical function to predict, so the two can only disagree through
  * inputs, never through different maths. Allocation-free.
  *
- * The one mechanic this game adds is the BALLOON JUMP: its height is solved from
- * the player's reach and the step ahead, and its gravity from its height, so a
- * hop floats and a towering riser is still a single quick jump.
+ * The one mechanic this game adds is the BALLOON JUMP: every jump rises exactly the
+ * player's balloon lift, wherever they are, and its gravity is solved from that
+ * height, so a hop floats and a towering lift is still a single quick jump. There
+ * is no reach, no stand limit and no cap: collision is pure geometry.
  */
 
 export interface PlayerMotion {
@@ -45,8 +46,8 @@ export interface MovementInput {
 
 /** Server-owned tuning the step reads but never changes. */
 export interface SimParams {
-  /** The altitude the player's balloons reach (`reachYFor`). */
-  reachY: number;
+  /** The balloon lift (`worldLift`): how high every jump rises. A constant strength. */
+  lift: number;
 }
 
 export interface SimEvents {
@@ -160,40 +161,47 @@ export const stepPlayer = (
   applyHorizontal(motion, input, dt);
 
   // Gravity in two half-steps around the move (velocity Verlet), so an arc peaks at
-  // exactly its height however fast it launches - a towering riser is cleared by its
-  // planned margin, not short of it.
-  motion.vy -= motion.airGravity * dt * 0.5;
-  if (motion.vy < -motion.airTerminal) motion.vy = -motion.airTerminal;
+  // exactly its height however fast it launches. Rising uses the arc's own gravity;
+  // falling drifts down under the balloon (`descentGravity`, `descentTerminal`).
+  applyGravity(motion, dt * 0.5);
 
   // Substep until no substep travels further than `maxSubstepDistance`, so a
   // fast step collides as reliably as a slow one.
   const travel = Math.hypot(motion.vx, motion.vy, motion.vz) * dt;
   const substeps = Math.max(1, Math.min(Math.ceil(travel / MOVEMENT.maxSubstepDistance), MOVEMENT.maxSubsteps));
   const sub = dt / substeps;
-  const standLimit = standLimitFor(params.reachY);
-  for (let i = 0; i < substeps; i += 1) integrate(motion, sub, collision, standLimit);
-  if (!motion.grounded) {
-    motion.vy -= motion.airGravity * dt * 0.5;
-    if (motion.vy < -motion.airTerminal) motion.vy = -motion.airTerminal;
-  }
+  for (let i = 0; i < substeps; i += 1) integrate(motion, sub, collision);
+  if (!motion.grounded) applyGravity(motion, dt * 0.5);
 
   motion.coyote = motion.grounded ? MOVEMENT.coyoteTime : Math.max(0, motion.coyote - dt);
 
   if (!wasGrounded && motion.grounded) events.landed = true;
 };
 
-const integrate = (motion: PlayerMotion, dt: number, collision: WorldCollision, standLimit: number): void => {
+/**
+ * Half a step of gravity. While rising: the arc's full gravity, so the apex is
+ * exactly the jump height. While falling: the balloon's gentle descent, capped at
+ * a slow fall speed. Depends only on the motion itself, never on position.
+ */
+const applyGravity = (motion: PlayerMotion, dt: number): void => {
+  const gravity = motion.vy > 0 ? motion.airGravity : motion.airGravity * BALLOON_JUMP.descentGravity;
+  motion.vy -= gravity * dt;
+  const terminal = motion.airTerminal * BALLOON_JUMP.descentTerminal;
+  if (motion.vy < -terminal) motion.vy = -terminal;
+};
+
+const integrate = (motion: PlayerMotion, dt: number, collision: WorldCollision): void => {
   const previousY = motion.y;
 
   motion.x += motion.vx * dt;
-  const correctedX = collision.resolveAxis(0, motion.x, motion.z, motion.y, standLimit);
+  const correctedX = collision.resolveAxis(0, motion.x, motion.z, motion.y);
   if (correctedX !== motion.x) {
     motion.x = correctedX;
     motion.vx = 0;
   }
 
   motion.z += motion.vz * dt;
-  const correctedZ = collision.resolveAxis(2, motion.z, motion.x, motion.y, standLimit);
+  const correctedZ = collision.resolveAxis(2, motion.z, motion.x, motion.y);
   if (correctedZ !== motion.z) {
     motion.z = correctedZ;
     motion.vz = 0;
@@ -206,22 +214,22 @@ const integrate = (motion: PlayerMotion, dt: number, collision: WorldCollision, 
   motion.z = BOUNDS.z;
 
   resolveCeiling(motion, previousY, collision);
-  resolveGround(motion, previousY, collision, standLimit);
+  resolveGround(motion, previousY, collision);
 };
 
 /**
  * The balloon jump, from the ground (or within coyote time of leaving it).
  *
- * Its height is decided from the simulation's own state and the server-owned
- * reach, so a client cannot float higher whatever it sends - the most it can do
- * is predict a jump the server refuses.
+ * Its height is the server-owned balloon lift and nothing else - not the position,
+ * the step or the staircase - so a client cannot float higher whatever it sends,
+ * and no step can make a jump weaker.
  */
 const applyJump = (motion: PlayerMotion, input: MovementInput, params: SimParams, events: SimEvents): void => {
   const pressed = input.jump && !motion.jumpLatched;
   motion.jumpLatched = input.jump;
   if (!pressed || !(motion.grounded || motion.coyote > 0)) return;
 
-  const jump = resolveJumpPhysics(jumpHeightFor(motion.y, params.reachY, nextStepTopFrom(motion.z)));
+  const jump = resolveJumpPhysics(jumpHeightFor(params.lift));
   motion.vy = jump.velocity;
   motion.airGravity = jump.gravity;
   motion.airTerminal = jump.velocity;
@@ -273,8 +281,8 @@ const resolveCeiling = (motion: PlayerMotion, previousY: number, collision: Worl
   motion.vy = 0;
 };
 
-const resolveGround = (motion: PlayerMotion, previousY: number, collision: WorldCollision, standLimit: number): void => {
-  const surfaceY = collision.surfaceYAt(motion.x, motion.z, previousY, standLimit);
+const resolveGround = (motion: PlayerMotion, previousY: number, collision: WorldCollision): void => {
+  const surfaceY = collision.surfaceYAt(motion.x, motion.z, previousY);
   if (surfaceY === null || motion.vy > 0 || motion.y > surfaceY) {
     motion.grounded = false;
     return;

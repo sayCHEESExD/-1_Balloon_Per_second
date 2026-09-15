@@ -3,7 +3,6 @@ import {
   MAX_PLAYERS_PER_ROOM,
   MessageType,
   SPAWN_ROTATION_Y,
-  handleFor,
   isFinalStep,
   portalAt,
   worldAtX,
@@ -141,7 +140,6 @@ export class GameRoom extends Room<GameState> {
 
     const playerId = typeof options.playerId === 'string' ? options.playerId.slice(0, 64) : '';
     if (playerId) this.playerIds.set(client.sessionId, playerId);
-    player.handle = handleFor(playerId || client.sessionId);
 
     // Restore BEFORE deriving: the reach and the payout follow from it.
     const restored = playerId ? profileStore.restore(playerId, player) : false;
@@ -273,7 +271,10 @@ export class GameRoom extends Room<GameState> {
     if (!token) {
       this.bloxityIds.delete(sessionId);
       const player = this.state.players.get(sessionId);
-      if (player) player.displayName = '';
+      if (player) {
+        player.displayName = '';
+        player.avatarUrl = '';
+      }
       return;
     }
 
@@ -284,10 +285,15 @@ export class GameRoom extends Room<GameState> {
       if (!user) {
         this.bloxityIds.delete(sessionId);
         player.displayName = '';
+        player.avatarUrl = '';
         return;
       }
       this.bloxityIds.set(sessionId, user.id);
+      // What every client shows for this player: Bloxity's own profile, never an id.
       player.displayName = user.displayName || user.username;
+      player.avatarUrl = user.avatarUrl;
+      // Saved, so the boards keep the name and avatar while the player is offline.
+      this.persist(sessionId, player);
       logger.info(SCOPE, `${sessionId} verified as Bloxity @${user.username}`);
       this.applyGrants(sessionId, player);
     });

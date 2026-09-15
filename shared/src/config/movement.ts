@@ -38,30 +38,37 @@ export const MOVEMENT: MovementConfig = {
 /**
  * The balloon jump.
  *
- * HOW HIGH a jump goes is the balloon mechanic: it rises toward the player's REACH
- * (the altitude their balloons lift them to, see `reachYFor`) but no further than
- * the top of the step ahead plus `clearance` (`jumpHeightFor`) - so it always
- * clears the next riser that is within reach, and never leaves anyone drifting
- * down for minutes from far above it. It is never less than `minHop`.
+ * HOW HIGH a jump goes is the balloon mechanic, and it is a PHYSICAL STRENGTH: every
+ * jump rises exactly the player's balloon lift (`balloonLiftFor`), at least
+ * `minHop` (`jumpHeightFor`). Nothing else enters it - not the step, the altitude,
+ * the world position or the staircase ahead - so the same balloons gain the same
+ * height at stud 1, stud 300 and in World 2. A riser taller than the lift is simply
+ * not reached by the jump.
  *
  * The physics is solved backwards from that height (`resolveJumpPhysics`): the
  * time to the apex grows only logarithmically, so a small hop is slow and floaty
- * and a riser thousands of units tall still takes little more than a second. A
- * walk-off falls like a jump the height of the riser it drops down.
+ * and a lift thousands of units high still takes little more than a second. A
+ * walk-off falls like a jump the height of the riser it drops down (a fall, never
+ * a jump, so it has no effect on the lift).
  */
 export const BALLOON_JUMP = {
-  /** The smallest jump: what a player at their reach still gets. */
+  /** The smallest jump, for a player with next to no balloons. */
   minHop: 1.6,
-  /** How far above the next step's top a jump rises. */
-  clearance: 3,
   /** The height whose rise takes `apexTimeBase`. */
   referenceHeight: 8,
-  /** Seconds to the apex of a reference-height jump. */
-  apexTimeBase: 0.59,
+  /** Seconds to the apex of a reference-height jump: a slow, balloon-borne rise. */
+  apexTimeBase: 0.95,
   /** Extra seconds to the apex each time the height doubles. */
-  apexTimePerDoubling: 0.09,
-  apexTimeMin: 0.35,
-  apexTimeMax: 1.3,
+  apexTimePerDoubling: 0.14,
+  apexTimeMin: 0.6,
+  apexTimeMax: 2.2,
+  /**
+   * Coming DOWN, the balloon holds the player up: gravity is this fraction of the
+   * arc's, and the fall never gets faster than this fraction of the launch speed.
+   * Only the descent - the rise, and so the height reached, is untouched.
+   */
+  descentGravity: 0.5,
+  descentTerminal: 0.55,
   /** A walk-off falls as if from a riser at least this tall. */
   walkOffMinHeight: 8,
 } as const;
@@ -83,10 +90,9 @@ export const resolveJumpPhysics = (height: number): JumpPhysics => {
   return { height: h, velocity: (2 * h) / t, gravity: (2 * h) / (t * t) };
 };
 
-/** How high a jump from `feetY` goes, with the reach at `reachY` and the next step's top at `nextTopY`. */
-export const jumpHeightFor = (feetY: number, reachY: number, nextTopY: number): number => {
-  const feet = Number.isFinite(feetY) ? feetY : 0;
-  const room = (Number.isFinite(reachY) ? reachY : 0) - feet;
-  const needed = (Number.isFinite(nextTopY) ? nextTopY : feet) - feet + BALLOON_JUMP.clearance;
-  return Math.max(Math.min(room, needed), BALLOON_JUMP.minHop);
-};
+/**
+ * THE jump height: the balloon lift, never less than a hop. Takes the lift and
+ * nothing else, on purpose - a position cannot be passed in.
+ */
+export const jumpHeightFor = (lift: number): number =>
+  Math.max(Number.isFinite(lift) ? lift : 0, BALLOON_JUMP.minHop);
