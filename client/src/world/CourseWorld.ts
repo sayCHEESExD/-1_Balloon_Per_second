@@ -306,9 +306,12 @@ export class CourseWorld {
         batch.add(box(2.4, 2.6, 2.4, 0, i * 2.6, 0, archColours[i % archColours.length] as number), side * (mouth + 1.5), 0, hub.maxZ + 1, 0);
       }
     }
+    // The 12 top segments TILE the span exactly. Overlapping them put two faces in
+    // the same plane along every seam, which z-fights into stripes across the arch.
+    const segment = ((mouth + 1.5) * 2) / 12;
     for (let i = 0; i < 12; i += 1) {
-      const x = -mouth - 1.5 + ((mouth + 1.5) * 2 * (i + 0.5)) / 12;
-      batch.add(box((mouth * 2 + 5.4) / 12 + 0.02, 2.2, 2.4, 0, 18.2, 0, archColours[i % archColours.length] as number), x, 0, hub.maxZ + 1, 0);
+      const x = -mouth - 1.5 + segment * (i + 0.5);
+      batch.add(box(segment, 2.2, 2.4, 0, 18.2, 0, archColours[i % archColours.length] as number), x, 0, hub.maxZ + 1, 0);
     }
     const { solid } = mergeBatch(batch);
     if (solid) this.mesh(solid, this.lambert({ vertexColors: true }), ox, 0, 0);
@@ -401,9 +404,12 @@ export class CourseWorld {
         batch.add(box(2.4, 2.6, 2.4, 0, i * 2.6, 0, archColours[i % archColours.length] as number), side * (mouth + 1.5), 0, HUB.maxZ + 1, 0);
       }
     }
+    // The 12 top segments TILE the span exactly. Overlapping them put two faces in
+    // the same plane along every seam, which z-fights into stripes across the arch.
+    const segment = ((mouth + 1.5) * 2) / 12;
     for (let i = 0; i < 12; i += 1) {
-      const x = -mouth - 1.5 + ((mouth + 1.5) * 2 * (i + 0.5)) / 12;
-      batch.add(box((mouth * 2 + 5.4) / 12 + 0.02, 2.2, 2.4, 0, 18.2, 0, archColours[i % archColours.length] as number), x, 0, HUB.maxZ + 1, 0);
+      const x = -mouth - 1.5 + segment * (i + 0.5);
+      batch.add(box(segment, 2.2, 2.4, 0, 18.2, 0, archColours[i % archColours.length] as number), x, 0, HUB.maxZ + 1, 0);
     }
     const { solid } = mergeBatch(batch);
     if (solid) this.mesh(solid, this.lambert({ vertexColors: true }), 0, 0, 0);

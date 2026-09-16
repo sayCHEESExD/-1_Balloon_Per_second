@@ -49,11 +49,17 @@ const bench: Prop = () => [
 ];
 
 const planter: Prop = (r) => {
-  const parts: Part[] = [box(3.2, 0.9, 3.2, 0, 0, 0, 0xc9784a), box(3.4, 0.2, 3.4, 0, 0.9, 0, 0xe0a070), box(2.8, 0.1, 2.8, 0, 1.0, 0, 0x5c3a1e)];
+  // The soil sits ON TOP of the rim (1.1 -> 1.22), never level with it: two faces at
+  // the same height z-fight, which striped the soil with dark bands.
+  const parts: Part[] = [
+    box(3.2, 0.9, 3.2, 0, 0, 0, 0xc9784a),
+    box(3.4, 0.2, 3.4, 0, 0.9, 0, 0xe0a070),
+    box(2.8, 0.12, 2.8, 0, 1.1, 0, 0x5c3a1e),
+  ];
   for (let i = 0; i < 6; i += 1) {
     const ox = (r() - 0.5) * 2.2;
     const oz = (r() - 0.5) * 2.2;
-    for (const part of flower(PETALS)(r)) parts.push({ ...part, x: part.x + ox, y: part.y + 1.05, z: part.z + oz });
+    for (const part of flower(PETALS)(r)) parts.push({ ...part, x: part.x + ox, y: part.y + 1.2, z: part.z + oz });
   }
   return parts;
 };
