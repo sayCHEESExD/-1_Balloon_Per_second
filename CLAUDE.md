@@ -175,9 +175,15 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
   default skin (`0`)** - that IS their default avatar; the bundled `player.fbx` and its
   `player.png` are ONLY for a player whose Bloxity avatar cannot be had (guest, blocked
   CDN). Never let the bundled texture stand in for a Bloxity default.
-- Remote players wear the cosmetics the SERVER read with their verified token
-  (`fetchBloxityAvatar` -> `PlayerState.avatar`, equipped ids as JSON; `'{}'` is the
-  default avatar, `''` is no Bloxity avatar at all). Proportions are not replicated.
+- **Remote players wear their OWN Bloxity cosmetics** (`PlayerState.avatar`: equipped ids
+  as JSON, `{}` the default avatar, empty no Bloxity avatar at all). Two sources, in this
+  order: the server reads them with that player's verified token (`fetchBloxityAvatar`)
+  where Bloxity allows it, and otherwise the player's own client reports them
+  (`MessageType.BloxityAvatar` -> `onAvatarReported`, sanitised and rate limited). That
+  report is the ONE thing a client may say about itself: Bloxity refuses a game-scoped
+  token on its avatar route, and the worst a forged report does is dress that player in
+  items they do not own. Names, ids, balances and progression stay server-verified.
+  Proportions are not replicated.
 
 ## Verification
 

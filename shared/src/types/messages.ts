@@ -57,3 +57,11 @@ export interface PetHatchedMessage {
 export interface BloxityIdentityMessage {
   token: string;
 }
+
+/**
+ * "This is the Bloxity avatar I am wearing": equipped cosmetic ids and nothing else -
+ * no name, no account id. `null` means this player has no Bloxity avatar to show.
+ */
+export interface BloxityAvatarMessage {
+  equipped: Record<string, string> | null;
+}

@@ -1,6 +1,7 @@
 import {
   MessageType,
   ROOM_NAME,
+  type BloxityAvatarMessage,
   type BloxityIdentityMessage,
   type ClaimWinMessage,
   type IndexMessage,
@@ -76,6 +77,15 @@ export class NetworkClient {
   /** Where to read the Bloxity token at join time. */
   setIdentityProvider(provider: () => string | null): void {
     this.identity = provider;
+  }
+
+  /**
+   * The Bloxity cosmetics we wear, so every OTHER client can render this player as
+   * Bloxity has them. `null` for a player with no Bloxity avatar.
+   */
+  sendAvatar(equipped: Record<string, string> | null): void {
+    const message: BloxityAvatarMessage = { equipped };
+    this.room?.send(MessageType.BloxityAvatar, message);
   }
 
   /** Tell the room about a login or logout that happened after joining. */

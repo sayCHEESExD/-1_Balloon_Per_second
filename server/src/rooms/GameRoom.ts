@@ -7,6 +7,7 @@ import {
   portalAt,
   worldAtX,
   worldSpawn,
+  type BloxityAvatarMessage,
   type BloxityIdentityMessage,
   type ClaimWinMessage,
   type IndexMessage,
@@ -17,7 +18,7 @@ import {
   type SlotMessage,
   type WinAwardedMessage,
 } from '@highjump/shared';
-import { fetchBloxityAvatar } from '../bloxity/bloxityAvatarData.js';
+import { fetchBloxityAvatar, parseEquipped } from '../bloxity/bloxityAvatarData.js';
 import { verifyBloxityToken } from '../bloxity/bloxityIdentity.js';
 import { buxGrants } from '../bloxity/buxGrantsStore.js';
 import { serverConfig } from '../config/serverConfig.js';
@@ -40,6 +41,9 @@ const AUTOSAVE_SECONDS = 15;
 
 /** Milliseconds between two shop/menu requests from one player. */
 const REQUEST_COOLDOWN_MS = 150;
+
+/** Milliseconds between two avatar reports from one player. An avatar changes rarely. */
+const AVATAR_REPORT_COOLDOWN_MS = 400;
 
 interface JoinOptions {
   playerId?: string;
@@ -82,6 +86,9 @@ export class GameRoom extends Room<GameState> {
   private readonly bloxityIds = new Map<string, string>();
   /** Latest identity check per session, so a stale verification cannot win a race. */
   private readonly identityChecks = new Map<string, number>();
+  /** Sessions whose cosmetics the SERVER read from Bloxity; their client cannot override those. */
+  private readonly avatarFromBloxity = new Set<string>();
+  private readonly lastAvatarReport = new Map<string, number>();
 
   override onCreate(): void {
     this.setState(new GameState());
@@ -121,6 +128,9 @@ export class GameRoom extends Room<GameState> {
 
     this.onMessage(MessageType.BloxityIdentity, (client, message: BloxityIdentityMessage) =>
       this.resolveIdentity(client.sessionId, typeof message?.token === 'string' ? message.token : ''),
+    );
+    this.onMessage(MessageType.BloxityAvatar, (client, message: BloxityAvatarMessage) =>
+      this.onAvatarReported(client.sessionId, message),
     );
 
     this.setSimulationInterval((deltaMs) => this.tick(deltaMs / 1000), serverConfig.patchRateMs);
@@ -173,6 +183,8 @@ export class GameRoom extends Room<GameState> {
     this.lastRequest.delete(client.sessionId);
     this.bloxityIds.delete(client.sessionId);
     this.identityChecks.delete(client.sessionId);
+    this.avatarFromBloxity.delete(client.sessionId);
+    this.lastAvatarReport.delete(client.sessionId);
     logger.info(SCOPE, `leave ${client.sessionId} (${this.clients.length} left)`);
   }
 
@@ -211,6 +223,28 @@ export class GameRoom extends Room<GameState> {
     this.placeAt(client, player, 'win');
     this.persist(client.sessionId, player);
     logger.info(SCOPE, `win area ${payload.area} banked by ${client.sessionId} (+${result.wins})`);
+  }
+
+  /**
+   * The Bloxity avatar a player says they are wearing.
+   *
+   * COSMETIC ONLY. The worst a forged message can do is dress that player in items
+   * they do not own - which is why this is accepted while a name, an id or a balance
+   * never is. Ids are sanitised (`parseEquipped`), rate limited, and ignored outright
+   * for a session whose cosmetics the server read from Bloxity itself.
+   */
+  private onAvatarReported(sessionId: string, message: BloxityAvatarMessage): void {
+    const player = this.state.players.get(sessionId);
+    if (!player || this.avatarFromBloxity.has(sessionId)) return;
+    const now = Date.now();
+    if (now - (this.lastAvatarReport.get(sessionId) ?? 0) < AVATAR_REPORT_COOLDOWN_MS) return;
+    this.lastAvatarReport.set(sessionId, now);
+
+    const reported = message?.equipped;
+    const avatar = reported && typeof reported === 'object' ? parseEquipped({ equipped: reported }) : '';
+    if (avatar === player.avatar) return;
+    player.avatar = avatar;
+    logger.info(SCOPE, `${sessionId} avatar from client: ${avatar || '(none)'}`);
   }
 
   /** Rate-limited wrapper for every menu and shop request. */
@@ -277,6 +311,7 @@ export class GameRoom extends Room<GameState> {
         player.avatarUrl = '';
         player.avatar = '';
       }
+      this.avatarFromBloxity.delete(sessionId);
       return;
     }
 
@@ -289,6 +324,7 @@ export class GameRoom extends Room<GameState> {
         player.displayName = '';
         player.avatarUrl = '';
         player.avatar = '';
+        this.avatarFromBloxity.delete(sessionId);
         return;
       }
       this.bloxityIds.set(sessionId, user.id);
@@ -299,11 +335,19 @@ export class GameRoom extends Room<GameState> {
       this.persist(sessionId, player);
 
       // Their cosmetics, replicated so EVERY player sees the avatar they chose on
-      // Bloxity - the same token, so a client still asserts nothing about itself.
+      // Bloxity. Read with the player's own token where Bloxity allows it; where it
+      // does not (it refuses a game-scoped token), what their client reported stands.
       void fetchBloxityAvatar(token, serverConfig.bloxityApiBase).then((avatar) => {
         if (this.identityChecks.get(sessionId) !== check) return;
         const current = this.state.players.get(sessionId);
-        if (current) current.avatar = avatar;
+        if (!current) return;
+        if (!avatar) {
+          logger.info(SCOPE, `${sessionId} cosmetics unreadable from Bloxity; the client's own report stands`);
+          return;
+        }
+        this.avatarFromBloxity.add(sessionId);
+        current.avatar = avatar;
+        logger.info(SCOPE, `${sessionId} avatar from Bloxity: ${avatar}`);
       });
       logger.info(SCOPE, `${sessionId} verified as Bloxity @${user.username}`);
       this.applyGrants(sessionId, player);

@@ -3,7 +3,10 @@ import { createAnimationInput, type AnimationInput } from '../animation/Animatio
 import { BloxityAvatar } from '../bloxity/BloxityAvatar.js';
 import { DEFAULT_PROPORTIONS, type LegionEquipped } from '../bloxity/legionTypes.js';
 import type { NetPlayerState } from '../net/netTypes.js';
+import { logger } from '../util/logger.js';
 import { PlayerCharacter } from './PlayerCharacter.js';
+
+const SCOPE = 'RemotePlayer';
 
 const FOLLOW_RATE = 14;
 const FOLLOW_RATE_Y = 10;
@@ -116,6 +119,7 @@ export class RemotePlayer {
       this.avatar?.dispose();
       this.avatar = null;
       this.character.setModel(null);
+      logger.info(SCOPE, 'no Bloxity avatar for this player: the bundled body stands');
       return;
     }
 
@@ -127,6 +131,7 @@ export class RemotePlayer {
     }
     this.avatar ??= new BloxityAvatar(this.character, true);
     this.avatar.apply(equipped, DEFAULT_PROPORTIONS);
+    logger.info(SCOPE, `wearing the Bloxity avatar of this player: ${encoded}`);
   }
 
   dispose(): void {

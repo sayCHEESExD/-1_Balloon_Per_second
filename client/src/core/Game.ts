@@ -127,6 +127,7 @@ export class Game {
   private readonly announced = new Set<string>();
   private joinedAt = 0;
   private identityTimer = 0;
+  private avatarTimer = 0;
   /** FPS readout for the portal's `show_fps` setting. */
   private readonly fpsReadout: HTMLDivElement;
   private fpsFrames = 0;
@@ -154,6 +155,8 @@ export class Game {
         const roomId = this.network.roomId;
         this.bloxity.updateRoom(roomId);
         this.bloxityPanel.setRoom(roomId);
+        // Now there is a room to tell which avatar we wear.
+        this.publishAvatar();
       },
       onPlayerAdded: (sessionId, state) => this.onPlayerState(sessionId, state, true),
       onPlayerChanged: (sessionId, state) => this.onPlayerState(sessionId, state, false),
@@ -197,6 +200,8 @@ export class Game {
         this.bloxityPanel.refreshAvatar();
         // A new look is a new avatar thumbnail: the server re-reads the profile.
         this.refreshIdentitySoon();
+        // ...and a new look for everyone ELSE to render.
+        this.publishAvatar();
       },
       // A login or logout after joining. Before joining this is a no-op and the
       // join itself carries the token.
@@ -205,6 +210,7 @@ export class Game {
         this.signedIn = user !== null;
         this.bloxityAvatar?.setSignedIn(this.signedIn);
         this.network.sendIdentity(token);
+        this.publishAvatar();
       },
     });
     this.network.setIdentityProvider(() => this.bloxity.getToken());
@@ -423,6 +429,24 @@ export class Game {
     this.bloxityPanel.closeAll();
     panel.toggle();
     this.audio.play('ui');
+  }
+
+  /**
+   * Tell the room which Bloxity avatar we wear, so every OTHER player renders this
+   * character as Bloxity has it.
+   *
+   * The account's own SDK is the only place these equipped ids can be read - Bloxity's
+   * avatar route refuses the game-scoped token the server holds - so this is the one
+   * thing the client reports about itself. A guest reports none and stays in the
+   * bundled body. Debounced, because the customizer fires a change per edit.
+   */
+  private publishAvatar(): void {
+    window.clearTimeout(this.avatarTimer);
+    this.avatarTimer = window.setTimeout(() => {
+      const equipped = this.signedIn ? (this.bloxity.getEquipped() as Record<string, string>) : null;
+      this.network.sendAvatar(equipped);
+      logger.info(SCOPE, `published our Bloxity avatar: ${equipped ? JSON.stringify(equipped) : 'none'}`);
+    }, 350);
   }
 
   /**

@@ -57,6 +57,15 @@ export const MessageType = {
    * The server verifies it with Bloxity; it never trusts an id from a client.
    */
   BloxityIdentity: 'bloxityIdentity',
+  /**
+   * Client -> server: the Bloxity cosmetics this player is wearing (equipped ids).
+   *
+   * Cosmetic ONLY, and the one thing a client reports about itself: Bloxity's avatar
+   * route refuses the game-scoped token the server holds, so an account's own SDK is
+   * the only place these ids can be read. Without them every OTHER player would see
+   * the default body. Names, ids and progression stay server-verified.
+   */
+  BloxityAvatar: 'bloxityAvatar',
 } as const;
 
 export type MessageType = (typeof MessageType)[keyof typeof MessageType];
