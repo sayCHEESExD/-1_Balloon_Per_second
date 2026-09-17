@@ -9,6 +9,7 @@
  * Run with `npm run build:server && node scripts/verify-identity.mjs`.
  */
 import { parseBloxityUser, verifyBloxityToken } from '../server/dist/bloxity/bloxityIdentity.js';
+import { fetchBloxityAvatar, parseEquipped } from '../server/dist/bloxity/bloxityAvatarData.js';
 
 let failures = 0;
 const check = (label, condition, detail = '') => {
@@ -77,6 +78,25 @@ console.log('\nrejections\n');
     throw new Error('network down');
   });
   check('a network failure is nobody, not a crash', broken === null);
+}
+
+console.log("\nthe avatar a player wears (cosmetics, read with their token)\n");
+{
+  check('an account wearing nothing is its DEFAULT avatar, not "no avatar"', parseEquipped({ equipped: {} }) === '{}');
+  check('equipped ids are read from { equipped } or from the body itself', parseEquipped({ equipped: { skinId: '7', hatId: '12' } }) === JSON.stringify({ hatId: '12', skinId: '7' }) && parseEquipped({ skinId: '7' }) === JSON.stringify({ skinId: '7' }));
+  check('only known slots survive, and only id-shaped values', parseEquipped({ equipped: { skinId: '7', evil: '<script>', hatId: 'a b', backId: 'x'.repeat(200) } }) === JSON.stringify({ skinId: '7' }));
+  check('a response with no avatar at all is empty (the bundled-body fallback)', parseEquipped(null) === '' && parseEquipped('nope') === '');
+
+  const calls = [];
+  const ok = async (url, init = {}) => {
+    calls.push({ url, auth: init.headers?.Authorization });
+    return new Response(JSON.stringify({ equipped: { skinId: '4', headId: '9' }, ownedItems: ['0'] }), { status: 200 });
+  };
+  const worn = await fetchBloxityAvatar('tok', 'https://api.example.test', ok);
+  check('cosmetics are read from GET /v1/avatar/equipped with the bearer token', calls[0]?.url === 'https://api.example.test/v1/avatar/equipped' && calls[0]?.auth === 'Bearer tok');
+  check('and come back as the equipped ids', worn === JSON.stringify({ skinId: '4', headId: '9' }), worn);
+  check('a refusal means no cosmetics, never a crash', (await fetchBloxityAvatar('tok', 'https://api.example.test', async () => new Response('{}', { status: 401 }))) === '');
+  check('so does a network failure, and an empty token is never sent', (await fetchBloxityAvatar('tok', 'https://api.example.test', async () => { throw new Error('down'); })) === '' && (await fetchBloxityAvatar('', 'https://api.example.test', ok)) === '' && calls.length === 1);
 }
 
 console.log(`\n${failures === 0 ? 'identity verified' : `${failures} FAILURE(S)`}\n`);

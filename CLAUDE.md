@@ -161,15 +161,23 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
   is guarded: a blocked CDN must never stop play. Slug: `balloon-per-second`
   (`VITE_BLOXITY_GAME_ID` overrides).
 - There is exactly ONE `auth.onUserChanged` subscription (in `Bloxity`); UI fans out from
-  it. The user object is never cached.
+  it. The user object is never cached. The account chip offers Friends, Avatar and Bux -
+  there is deliberately NO log-out button, and nothing in the UI calls `auth.logout()`.
 - Bux purchases pass a SKU only. Wins are granted by the SERVER when Bloxity's webhook
   hits `POST /bloxity/bux` (secret header `x-legion-webhook-secret`, env
   `BLOXITY_WEBHOOK_SECRET`; without it every delivery is refused). The SKU -> Wins table
   is `server/src/bloxity/BuxGrants.ts`; grants are queued to disk, then applied through
   `wallet.add` to the session whose token the server verified with Bloxity.
-- Avatar cosmetics dress the LOCAL character only (`BloxityAvatar`): a skin or body part
-  swaps in Bloxity's `player.glb` via `PlayerCharacter.setModel` (which re-ties the
-  balloon to the new hand); hats/back hang on bones.
+- **Bloxity owns how a player LOOKS, local and remote alike** (`BloxityAvatar`). A
+  signed-in account wears Bloxity's `player.glb` via `PlayerCharacter.setModel` (which
+  re-ties the balloon to the new hand), with parts swapped in, the skin as its map and
+  hats/back on bones. **An account with nothing equipped still wears Bloxity's body and
+  default skin (`0`)** - that IS their default avatar; the bundled `player.fbx` and its
+  `player.png` are ONLY for a player whose Bloxity avatar cannot be had (guest, blocked
+  CDN). Never let the bundled texture stand in for a Bloxity default.
+- Remote players wear the cosmetics the SERVER read with their verified token
+  (`fetchBloxityAvatar` -> `PlayerState.avatar`, equipped ids as JSON; `'{}'` is the
+  default avatar, `''` is no Bloxity avatar at all). Proportions are not replicated.
 
 ## Verification
 

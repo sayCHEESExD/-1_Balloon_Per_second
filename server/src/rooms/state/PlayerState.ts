@@ -17,6 +17,11 @@ export class PlayerState extends Schema {
   @type('string') displayName = '';
   /** The verified Bloxity avatar thumbnail (`pfp`), or '' for a guest. */
   @type('string') avatarUrl = '';
+  /**
+   * The equipped Bloxity cosmetics, read with the verified token, as JSON.
+   * '{}' is an account wearing its DEFAULT avatar; '' is no Bloxity avatar at all.
+   */
+  @type('string') avatar = '';
 
   @type('float32') x: number = SPAWN_POSITION.x;
   @type('float32') y: number = SPAWN_POSITION.y;

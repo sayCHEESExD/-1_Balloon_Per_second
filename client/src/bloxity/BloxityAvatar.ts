@@ -40,11 +40,15 @@ const SCRATCH = new Vector3();
  *  - the PROPORTIONS, as scales and offsets on bones. Never rotations:
  *    `PlayerRig` rebuilds every bone quaternion each frame.
  *
- * Remote players are not dressed: their equipped ids are not replicated.
+ * Used for the local player AND for remotes, whose equipped ids the server
+ * replicates (`PlayerState.avatar`).
  */
 export class BloxityAvatar {
   private readonly objLoader = new OBJLoader();
   private readonly textureLoader = new TextureLoader();
+
+  /** True when this character belongs to a Bloxity account, so Bloxity owns their look. */
+  private signedIn = false;
 
   private equipped: LegionEquipped = {};
   private proportions: LegionProportions = DEFAULT_PROPORTIONS;
@@ -66,8 +70,20 @@ export class BloxityAvatar {
 
   private disposed = false;
 
-  constructor(private readonly character: PlayerCharacter) {
+  constructor(private readonly character: PlayerCharacter, signedIn = false) {
+    this.signedIn = signedIn;
     this.bind(character.modelRoot, false);
+  }
+
+  /**
+   * Whether this player has a Bloxity account. Signing in puts them in BLOXITY's
+   * body - their default avatar is Bloxity's default body and skin, never the
+   * bundled character; signing out returns them to the bundled one.
+   */
+  setSignedIn(signedIn: boolean): void {
+    if (signedIn === this.signedIn) return;
+    this.signedIn = signedIn;
+    this.apply(this.equipped, this.proportions);
   }
 
   /** Wear this look. Safe to call on every avatar event; unchanged slots do no work. */
@@ -76,7 +92,10 @@ export class BloxityAvatar {
     this.equipped = equipped;
     this.proportions = proportions;
 
-    const wantsBody = isEquippedId(equipped.skinId) || hasParts(equipped);
+    // A Bloxity account wears BLOXITY'S body even with nothing equipped: that is
+    // their default avatar. The bundled body (and its bundled texture) is only for a
+    // player whose Bloxity avatar cannot be had at all.
+    const wantsBody = this.signedIn || isEquippedId(equipped.skinId) || hasParts(equipped);
     const key = wantsBody ? bodyKeyOf(equipped) : '';
     if (key !== this.bodyKey) {
       this.bodyKey = key;

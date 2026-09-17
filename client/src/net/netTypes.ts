@@ -8,6 +8,8 @@ export interface NetPlayerState {
   sessionId: string;
   /** Verified Bloxity avatar thumbnail, or '' for a guest. */
   avatarUrl: string;
+  /** Equipped Bloxity cosmetics as JSON; '' when the player has no Bloxity avatar. */
+  avatar: string;
   /** Verified Bloxity display name, or '' for a guest. */
   displayName: string;
   x: number;

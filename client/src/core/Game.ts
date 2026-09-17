@@ -121,6 +121,8 @@ export class Game {
   private bloxityAvatar: BloxityAvatar | null = null;
   /** The latest look, held until the character is built. */
   private pendingLook: { equipped: LegionEquipped; proportions: LegionProportions } | null = null;
+  /** Whether a Bloxity account is signed in, held until the character is built. */
+  private signedIn = false;
   /** Remote players already announced to Bloxity, so a name is toasted once. */
   private readonly announced = new Set<string>();
   private joinedAt = 0;
@@ -198,7 +200,12 @@ export class Game {
       },
       // A login or logout after joining. Before joining this is a no-op and the
       // join itself carries the token.
-      identityChanged: (_user, token) => this.network.sendIdentity(token),
+      identityChanged: (user, token) => {
+        // A signed-in account wears Bloxity's own body, default avatar included.
+        this.signedIn = user !== null;
+        this.bloxityAvatar?.setSignedIn(this.signedIn);
+        this.network.sendIdentity(token);
+      },
     });
     this.network.setIdentityProvider(() => this.bloxity.getToken());
     this.bloxityPanel = new BloxityPanel(container, this.bloxity);
@@ -308,7 +315,8 @@ export class Game {
     this.sceneManager.scene.add(this.localPlayer.character.root, this.localPlayer.character.worldRoot);
     // Bloxity cosmetics on the LOCAL character, with any look that arrived while
     // the model was still loading.
-    this.bloxityAvatar = new BloxityAvatar(this.localPlayer.character);
+    // Built AFTER the bundled character, so nothing can overwrite the Bloxity look.
+    this.bloxityAvatar = new BloxityAvatar(this.localPlayer.character, this.signedIn);
     if (this.pendingLook) {
       this.bloxityAvatar.apply(this.pendingLook.equipped, this.pendingLook.proportions);
       this.pendingLook = null;

@@ -1,5 +1,7 @@
 import { heldBalloon, visibleName } from '@highjump/shared';
 import { createAnimationInput, type AnimationInput } from '../animation/AnimationInput.js';
+import { BloxityAvatar } from '../bloxity/BloxityAvatar.js';
+import { DEFAULT_PROPORTIONS, type LegionEquipped } from '../bloxity/legionTypes.js';
 import type { NetPlayerState } from '../net/netTypes.js';
 import { PlayerCharacter } from './PlayerCharacter.js';
 
@@ -34,6 +36,10 @@ export class RemotePlayer {
   private targetYaw = 0;
   private readonly input: AnimationInput = createAnimationInput();
 
+  /** Their Bloxity look, built only once the server says they have one. */
+  private avatar: BloxityAvatar | null = null;
+  private avatarData = '';
+
   private lastJumpCount: number;
   private wasGrounded = true;
   private placed = false;
@@ -65,6 +71,7 @@ export class RemotePlayer {
     this.character.setBalloon(heldBalloon(state.equippedBalloon, state.ownedBalloons).slot);
     this.character.setPets(state.pets);
     this.character.setNameTag(visibleName(state.displayName), state.balloons, state.displayName ? state.avatarUrl : '');
+    this.applyAvatar(state.avatar);
   }
 
   update(delta: number): void {
@@ -94,7 +101,36 @@ export class RemotePlayer {
     this.input.landed = false;
   }
 
+  /**
+   * Wear the cosmetics the server read from this player's Bloxity account.
+   *
+   * An empty string means they have no Bloxity avatar to show, which is the ONLY
+   * case that keeps the bundled character. Proportions are not replicated, so a
+   * remote wears Bloxity's default build.
+   */
+  private applyAvatar(encoded: string): void {
+    if (encoded === this.avatarData) return;
+    this.avatarData = encoded;
+
+    if (!encoded) {
+      this.avatar?.dispose();
+      this.avatar = null;
+      this.character.setModel(null);
+      return;
+    }
+
+    let equipped: LegionEquipped = {};
+    try {
+      equipped = JSON.parse(encoded) as LegionEquipped;
+    } catch {
+      equipped = {};
+    }
+    this.avatar ??= new BloxityAvatar(this.character, true);
+    this.avatar.apply(equipped, DEFAULT_PROPORTIONS);
+  }
+
   dispose(): void {
+    this.avatar?.dispose();
     this.character.dispose();
   }
 }

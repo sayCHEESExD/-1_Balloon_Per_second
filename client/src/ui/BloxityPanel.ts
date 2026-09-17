@@ -165,7 +165,6 @@ export class BloxityPanel {
       this.button(friendsLabel, 'hj-account__btn', () => void this.openFriends()),
       this.button('Avatar', 'hj-account__btn', () => this.openAvatar()),
       this.button('Bux', 'hj-account__btn', () => void this.openBux()),
-      this.button('Log out', 'hj-account__btn', () => this.bloxity.logout()),
     );
 
     this.chip.append(row, actions);

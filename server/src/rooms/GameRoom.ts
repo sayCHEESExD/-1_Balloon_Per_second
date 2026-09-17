@@ -17,6 +17,7 @@ import {
   type SlotMessage,
   type WinAwardedMessage,
 } from '@highjump/shared';
+import { fetchBloxityAvatar } from '../bloxity/bloxityAvatarData.js';
 import { verifyBloxityToken } from '../bloxity/bloxityIdentity.js';
 import { buxGrants } from '../bloxity/buxGrantsStore.js';
 import { serverConfig } from '../config/serverConfig.js';
@@ -274,6 +275,7 @@ export class GameRoom extends Room<GameState> {
       if (player) {
         player.displayName = '';
         player.avatarUrl = '';
+        player.avatar = '';
       }
       return;
     }
@@ -286,6 +288,7 @@ export class GameRoom extends Room<GameState> {
         this.bloxityIds.delete(sessionId);
         player.displayName = '';
         player.avatarUrl = '';
+        player.avatar = '';
         return;
       }
       this.bloxityIds.set(sessionId, user.id);
@@ -294,6 +297,14 @@ export class GameRoom extends Room<GameState> {
       player.avatarUrl = user.avatarUrl;
       // Saved, so the boards keep the name and avatar while the player is offline.
       this.persist(sessionId, player);
+
+      // Their cosmetics, replicated so EVERY player sees the avatar they chose on
+      // Bloxity - the same token, so a client still asserts nothing about itself.
+      void fetchBloxityAvatar(token, serverConfig.bloxityApiBase).then((avatar) => {
+        if (this.identityChecks.get(sessionId) !== check) return;
+        const current = this.state.players.get(sessionId);
+        if (current) current.avatar = avatar;
+      });
       logger.info(SCOPE, `${sessionId} verified as Bloxity @${user.username}`);
       this.applyGrants(sessionId, player);
     });
