@@ -194,6 +194,11 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
   client POLLS its own avatar state (`watchAvatarData`, `AVATAR_POLL_MS`) and publishes any
   change - otherwise other players are left looking at a half-loaded avatar (a skin with no
   parts) or the default body forever. Publishing on SDK events alone is not enough.
+- **A texture is flipped by its FORMAT, never by preference** (`pixelArt`). A glTF body or
+  part has v = 0 at the top of the image (`flipY = false`); an OBJ - every hat and back
+  item - has v = 0 at the bottom, which is three.js's default (`flipY = true`). Accessory
+  atlases are 16x16 or 32x32, so one wrong flip sends every face to a different texel and
+  the item wears scrambled camouflage. Keep pixel art on NearestFilter with no mipmaps.
 
 ## Verification
 

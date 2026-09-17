@@ -225,7 +225,8 @@ export class BloxityAvatar {
         texture.dispose();
         return;
       }
-      pixelArt(texture);
+      // An OBJ item: its UVs start at the BOTTOM of the atlas (see `pixelArt`).
+      pixelArt(texture, true);
       this.textures.push(texture);
       const material = new MeshStandardMaterial({ map: texture, roughness: 0.85 });
       object.traverse((child) => {
@@ -310,10 +311,18 @@ const hasParts = (e: LegionEquipped): boolean => [e.headId, e.torsoId, e.armLId,
 const bodyKeyOf = (e: LegionEquipped): string =>
   [e.headId, e.torsoId, e.armLId, e.armRId, e.legLId, e.legRId].map((id) => (isEquippedId(id) ? id : '-')).join('|');
 
-/** Bloxity textures are pixel art; smoothing turns faces into smudges. */
-const pixelArt = (texture: Texture): void => {
+/**
+ * Bloxity textures are pixel art; smoothing turns faces into smudges.
+ *
+ * `flipY` is the FORMAT's convention, not a preference. A glTF body carries UVs
+ * with v = 0 at the top of the image, so it must not be flipped; an OBJ (every hat
+ * and back item) carries v = 0 at the BOTTOM, which is what three.js flips by
+ * default. Getting this wrong sends each face to a different texel of a 32x32
+ * atlas - the scrambled camouflage an accessory used to wear.
+ */
+const pixelArt = (texture: Texture, flipY = false): void => {
   texture.colorSpace = SRGBColorSpace;
-  texture.flipY = false;
+  texture.flipY = flipY;
   texture.magFilter = NearestFilter;
   texture.minFilter = NearestFilter;
   texture.generateMipmaps = false;
