@@ -175,15 +175,25 @@ highest step labelled N studs or less, and no higher. There are no rebirths.
   default skin (`0`)** - that IS their default avatar; the bundled `player.fbx` and its
   `player.png` are ONLY for a player whose Bloxity avatar cannot be had (guest, blocked
   CDN). Never let the bundled texture stand in for a Bloxity default.
-- **Remote players wear their OWN Bloxity cosmetics** (`PlayerState.avatar`: equipped ids
-  as JSON, `{}` the default avatar, empty no Bloxity avatar at all). Two sources, in this
-  order: the server reads them with that player's verified token (`fetchBloxityAvatar`)
-  where Bloxity allows it, and otherwise the player's own client reports them
-  (`MessageType.BloxityAvatar` -> `onAvatarReported`, sanitised and rate limited). That
-  report is the ONE thing a client may say about itself: Bloxity refuses a game-scoped
-  token on its avatar route, and the worst a forged report does is dress that player in
-  items they do not own. Names, ids, balances and progression stay server-verified.
-  Proportions are not replicated.
+- **Remote players wear their OWN Bloxity avatar - the whole avatar.** An avatar is a set
+  of EQUIPPED ASSETS, not a texture: head, torso, each arm, each leg, skin, hat, back item
+  and body proportions. `PlayerState.avatar` replicates all of it as
+  `{"equipped":{ids},"proportions":{...}}` (`encodeAvatar`); `{"equipped":{}}` is the
+  default avatar and empty is no Bloxity avatar at all - the ONLY case that falls back to
+  the bundled body. `RemotePlayer` hands it to the SAME `BloxityAvatar` the local player
+  uses, so parts are resolved per id (`BloxityBodyFactory`) and two players genuinely
+  differ in mesh, not just in texture. Never dress a remote by texturing the bundled FBX.
+- The data reaches the server two ways, in this order: the server reads it with that
+  player's verified token (`fetchBloxityAvatar`) where Bloxity allows it, and otherwise
+  the player's own client reports it (`MessageType.BloxityAvatar` -> `onAvatarReported`,
+  sanitised and rate limited). That report is the ONE thing a client may say about itself:
+  Bloxity refuses a game-scoped token on its avatar route, and the worst a forged report
+  does is dress that player in items they do not own. Names, ids, balances and progression
+  stay server-verified.
+- **The SDK loads equipped parts asynchronously and does not always announce it**, so the
+  client POLLS its own avatar state (`watchAvatarData`, `AVATAR_POLL_MS`) and publishes any
+  change - otherwise other players are left looking at a half-loaded avatar (a skin with no
+  parts) or the default body forever. Publishing on SDK events alone is not enough.
 
 ## Verification
 

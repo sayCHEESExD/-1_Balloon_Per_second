@@ -83,8 +83,8 @@ export class NetworkClient {
    * The Bloxity cosmetics we wear, so every OTHER client can render this player as
    * Bloxity has them. `null` for a player with no Bloxity avatar.
    */
-  sendAvatar(equipped: Record<string, string> | null): void {
-    const message: BloxityAvatarMessage = { equipped };
+  sendAvatar(equipped: Record<string, string> | null, proportions?: Record<string, number>): void {
+    const message: BloxityAvatarMessage = { equipped, proportions: proportions ?? null };
     this.room?.send(MessageType.BloxityAvatar, message);
   }
 

@@ -1,7 +1,7 @@
 import { heldBalloon, visibleName } from '@highjump/shared';
 import { createAnimationInput, type AnimationInput } from '../animation/AnimationInput.js';
 import { BloxityAvatar } from '../bloxity/BloxityAvatar.js';
-import { DEFAULT_PROPORTIONS, type LegionEquipped } from '../bloxity/legionTypes.js';
+import { DEFAULT_PROPORTIONS, type LegionEquipped, type LegionProportions } from '../bloxity/legionTypes.js';
 import type { NetPlayerState } from '../net/netTypes.js';
 import { logger } from '../util/logger.js';
 import { PlayerCharacter } from './PlayerCharacter.js';
@@ -105,11 +105,11 @@ export class RemotePlayer {
   }
 
   /**
-   * Wear the cosmetics the server read from this player's Bloxity account.
+   * Wear THIS player's own Bloxity avatar: their equipped head, torso, arms, legs,
+   * skin, accessories and body proportions, all resolved from their own ids.
    *
-   * An empty string means they have no Bloxity avatar to show, which is the ONLY
-   * case that keeps the bundled character. Proportions are not replicated, so a
-   * remote wears Bloxity's default build.
+   * An empty string means they have no Bloxity avatar at all, which is the ONLY case
+   * that keeps the bundled character.
    */
   private applyAvatar(encoded: string): void {
     if (encoded === this.avatarData) return;
@@ -124,14 +124,27 @@ export class RemotePlayer {
     }
 
     let equipped: LegionEquipped = {};
+    let proportions: LegionProportions = DEFAULT_PROPORTIONS;
     try {
-      equipped = JSON.parse(encoded) as LegionEquipped;
+      // `{ equipped, proportions }`; a bare id map is the older shape.
+      const parsed = JSON.parse(encoded) as {
+        equipped?: LegionEquipped;
+        proportions?: Partial<LegionProportions>;
+      };
+      equipped = (parsed.equipped ?? parsed) as LegionEquipped;
+      proportions = { ...DEFAULT_PROPORTIONS, ...(parsed.proportions ?? {}) };
     } catch {
-      equipped = {};
+      logger.warn(SCOPE, `avatar data was not readable: ${encoded}`);
     }
     this.avatar ??= new BloxityAvatar(this.character, true);
-    this.avatar.apply(equipped, DEFAULT_PROPORTIONS);
-    logger.info(SCOPE, `wearing the Bloxity avatar of this player: ${encoded}`);
+    this.avatar.apply(equipped, proportions);
+    logger.info(
+      SCOPE,
+      `avatar applied: parts head=${equipped.headId ?? '-'} torso=${equipped.torsoId ?? '-'} ` +
+        `arms=${equipped.armLId ?? '-'}/${equipped.armRId ?? '-'} legs=${equipped.legLId ?? '-'}/${equipped.legRId ?? '-'} ` +
+        `skin=${equipped.skinId ?? '-'} hat=${equipped.hatId ?? '-'} back=${equipped.backId ?? '-'} ` +
+        `proportions=${JSON.stringify(proportions)}`,
+    );
   }
 
   dispose(): void {

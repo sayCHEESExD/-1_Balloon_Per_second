@@ -9,7 +9,7 @@
  * Run with `npm run build:server && node scripts/verify-identity.mjs`.
  */
 import { parseBloxityUser, verifyBloxityToken } from '../server/dist/bloxity/bloxityIdentity.js';
-import { fetchBloxityAvatar, parseEquipped } from '../server/dist/bloxity/bloxityAvatarData.js';
+import { encodeAvatar, fetchBloxityAvatar, readProportions } from '../server/dist/bloxity/bloxityAvatarData.js';
 
 let failures = 0;
 const check = (label, condition, detail = '') => {
@@ -80,23 +80,31 @@ console.log('\nrejections\n');
   check('a network failure is nobody, not a crash', broken === null);
 }
 
-console.log("\nthe avatar a player wears (cosmetics, read with their token)\n");
+console.log("\nthe avatar a player wears: parts, skin, accessories, proportions\n");
 {
-  check('an account wearing nothing is its DEFAULT avatar, not "no avatar"', parseEquipped({ equipped: {} }) === '{}');
-  check('equipped ids are read from { equipped } or from the body itself', parseEquipped({ equipped: { skinId: '7', hatId: '12' } }) === JSON.stringify({ hatId: '12', skinId: '7' }) && parseEquipped({ skinId: '7' }) === JSON.stringify({ skinId: '7' }));
-  check('only known slots survive, and only id-shaped values', parseEquipped({ equipped: { skinId: '7', evil: '<script>', hatId: 'a b', backId: 'x'.repeat(200) } }) === JSON.stringify({ skinId: '7' }));
-  check('a response with no avatar at all is empty (the bundled-body fallback)', parseEquipped(null) === '' && parseEquipped('nope') === '');
+  const ids = { headId: "h1", torsoId: "t1", armLId: "aL", armRId: "aR", legLId: "lL", legRId: "lR", skinId: "s1", hatId: "x1", backId: "b1" };
+  const encoded = encodeAvatar({ equipped: ids });
+  check("every body part, the skin and the accessories all survive", JSON.parse(encoded).equipped.headId === "h1" && JSON.parse(encoded).equipped.torsoId === "t1" && JSON.parse(encoded).equipped.armLId === "aL" && JSON.parse(encoded).equipped.armRId === "aR" && JSON.parse(encoded).equipped.legLId === "lL" && JSON.parse(encoded).equipped.legRId === "lR" && JSON.parse(encoded).equipped.skinId === "s1" && JSON.parse(encoded).equipped.hatId === "x1" && JSON.parse(encoded).equipped.backId === "b1", encoded);
+  check("a real Bloxity id (24 hex) is kept", JSON.parse(encodeAvatar({ equipped: { headId: "69c816f83ecd845acf823368" } })).equipped.headId === "69c816f83ecd845acf823368");
+  check("an account wearing nothing is its DEFAULT avatar, not \"no avatar\"", encodeAvatar({ equipped: {} }) === JSON.stringify({ equipped: {} }));
+  check("no avatar at all is empty: the ONLY bundled-body fallback", encodeAvatar(null) === "" && encodeAvatar("nope") === "");
+  check("only known slots survive, and only id-shaped values", JSON.stringify(JSON.parse(encodeAvatar({ equipped: { skinId: "7", evil: "<script>", hatId: "a b" } })).equipped) === JSON.stringify({ skinId: "7" }));
+
+  const built = JSON.parse(encodeAvatar({ equipped: ids, proportions: { height: 1.3, headScale: 1.4, armLength: 1 } }));
+  check("body proportions travel with the avatar", built.proportions.height === 1.3 && built.proportions.headScale === 1.4);
+  check("a proportion left at 1 is the default and is not sent", built.proportions.armLength === undefined);
+  check("proportions are bounded and finite", JSON.stringify(readProportions({ proportions: { height: 1e9, headScale: -5, neckHeight: Number.NaN, nope: 3 } })) === JSON.stringify({ height: 6, headScale: 0.05 }));
 
   const calls = [];
   const ok = async (url, init = {}) => {
     calls.push({ url, auth: init.headers?.Authorization });
-    return new Response(JSON.stringify({ equipped: { skinId: '4', headId: '9' }, ownedItems: ['0'] }), { status: 200 });
+    return new Response(JSON.stringify({ equipped: { skinId: "4", headId: "9" }, ownedItems: ["0"] }), { status: 200 });
   };
-  const worn = await fetchBloxityAvatar('tok', 'https://api.example.test', ok);
-  check('cosmetics are read from GET /v1/avatar/equipped with the bearer token', calls[0]?.url === 'https://api.example.test/v1/avatar/equipped' && calls[0]?.auth === 'Bearer tok');
-  check('and come back as the equipped ids', worn === JSON.stringify({ skinId: '4', headId: '9' }), worn);
-  check('a refusal means no cosmetics, never a crash', (await fetchBloxityAvatar('tok', 'https://api.example.test', async () => new Response('{}', { status: 401 }))) === '');
-  check('so does a network failure, and an empty token is never sent', (await fetchBloxityAvatar('tok', 'https://api.example.test', async () => { throw new Error('down'); })) === '' && (await fetchBloxityAvatar('', 'https://api.example.test', ok)) === '' && calls.length === 1);
+  const worn = await fetchBloxityAvatar("tok", "https://api.example.test", ok);
+  check("cosmetics are read from GET /v1/avatar/equipped with the bearer token", calls[0]?.url === "https://api.example.test/v1/avatar/equipped" && calls[0]?.auth === "Bearer tok");
+  check("and come back as the equipped ids", JSON.parse(worn).equipped.headId === "9", worn);
+  check("a refusal means no cosmetics, never a crash", (await fetchBloxityAvatar("tok", "https://api.example.test", async () => new Response("{}", { status: 401 }))) === "");
+  check("so does a network failure, and an empty token is never sent", (await fetchBloxityAvatar("tok", "https://api.example.test", async () => { throw new Error("down"); })) === "" && (await fetchBloxityAvatar("", "https://api.example.test", ok)) === "" && calls.length === 1);
 }
 
 console.log(`\n${failures === 0 ? 'identity verified' : `${failures} FAILURE(S)`}\n`);

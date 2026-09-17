@@ -51,6 +51,9 @@ const SCOPE = 'Game';
  */
 const IN_ROOM_WINDOW_MS = 3000;
 
+/** How often the SDK's avatar state is re-read, for the load it never announces. */
+const AVATAR_POLL_MS = 2000;
+
 /** `code` first, `key` as the fallback for keystrokes that carry no code. */
 const shortcutOf = (event: KeyboardEvent): string => {
   const code = event.code;
@@ -128,6 +131,9 @@ export class Game {
   private joinedAt = 0;
   private identityTimer = 0;
   private avatarTimer = 0;
+  private avatarWatch = 0;
+  /** The avatar last published, so an unchanged one is never re-sent. */
+  private avatarSignature = '';
   /** FPS readout for the portal's `show_fps` setting. */
   private readonly fpsReadout: HTMLDivElement;
   private fpsFrames = 0;
@@ -346,6 +352,7 @@ export class Game {
   }
 
   start(): void {
+    this.watchAvatarData();
     this.input.attach(this.renderer.renderer.domElement);
     // The loading screen comes down and the session begins.
     this.bloxity.loadingEnd();
@@ -443,10 +450,36 @@ export class Game {
   private publishAvatar(): void {
     window.clearTimeout(this.avatarTimer);
     this.avatarTimer = window.setTimeout(() => {
-      const equipped = this.signedIn ? (this.bloxity.getEquipped() as Record<string, string>) : null;
-      this.network.sendAvatar(equipped);
-      logger.info(SCOPE, `published our Bloxity avatar: ${equipped ? JSON.stringify(equipped) : 'none'}`);
+      if (!this.signedIn) {
+        this.network.sendAvatar(null);
+        return;
+      }
+      const equipped = this.bloxity.getEquipped() as Record<string, string>;
+      const proportions = this.bloxity.getProportions() as unknown as Record<string, number>;
+      this.avatarSignature = JSON.stringify([equipped, proportions]);
+      this.network.sendAvatar(equipped, proportions);
+      logger.info(SCOPE, `published our Bloxity avatar: ${this.avatarSignature}`);
     }, 350);
+  }
+
+  /**
+   * Watch the SDK's own avatar state and publish it whenever it changes.
+   *
+   * The SDK loads an account's equipped parts ASYNCHRONOUSLY after sign-in and does
+   * not always announce that first load, so publishing only on its events left other
+   * players looking at a half-loaded avatar - a skin with no parts, or nothing at all.
+   * Reading it is local and free; only a real change is sent.
+   */
+  private watchAvatarData(): void {
+    this.avatarWatch = window.setInterval(() => {
+      if (!this.signedIn) return;
+      const equipped = this.bloxity.getEquipped();
+      const proportions = this.bloxity.getProportions();
+      if (JSON.stringify([equipped, proportions]) === this.avatarSignature) return;
+      // Ours to wear as well: the local character self-heals with the same data.
+      this.bloxityAvatar?.apply(equipped, proportions);
+      this.publishAvatar();
+    }, AVATAR_POLL_MS);
   }
 
   /**
@@ -566,6 +599,9 @@ export class Game {
   }
 
   dispose(): void {
+    window.clearInterval(this.avatarWatch);
+    window.clearTimeout(this.avatarTimer);
+    window.clearTimeout(this.identityTimer);
     this.bloxity.gameplayEnd();
     // Out of the room, so a friend is not invited into a game nobody is in.
     this.bloxity.updateRoom('');

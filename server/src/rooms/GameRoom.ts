@@ -18,7 +18,7 @@ import {
   type SlotMessage,
   type WinAwardedMessage,
 } from '@highjump/shared';
-import { fetchBloxityAvatar, parseEquipped } from '../bloxity/bloxityAvatarData.js';
+import { encodeAvatar, fetchBloxityAvatar } from '../bloxity/bloxityAvatarData.js';
 import { verifyBloxityToken } from '../bloxity/bloxityIdentity.js';
 import { buxGrants } from '../bloxity/buxGrantsStore.js';
 import { serverConfig } from '../config/serverConfig.js';
@@ -241,7 +241,7 @@ export class GameRoom extends Room<GameState> {
     this.lastAvatarReport.set(sessionId, now);
 
     const reported = message?.equipped;
-    const avatar = reported && typeof reported === 'object' ? parseEquipped({ equipped: reported }) : '';
+    const avatar = reported && typeof reported === 'object' ? encodeAvatar(message) : '';
     if (avatar === player.avatar) return;
     player.avatar = avatar;
     logger.info(SCOPE, `${sessionId} avatar from client: ${avatar || '(none)'}`);

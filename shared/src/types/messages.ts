@@ -64,4 +64,6 @@ export interface BloxityIdentityMessage {
  */
 export interface BloxityAvatarMessage {
   equipped: Record<string, string> | null;
+  /** Body proportions: a custom build must not be forced into the default one. */
+  proportions?: Record<string, number> | null;
 }
